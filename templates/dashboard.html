@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Coffee Farm - Dashboard AI</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- AOS Animation -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #10b981;
+            --secondary: #3b82f6;
+            --accent: #8b5cf6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --gradient-primary: linear-gradient(135deg, #10b981, #3b82f6);
+            --gradient-danger: linear-gradient(135deg, #ef4444, #f59e0b);
+            --gradient-success: linear-gradient(135deg, #10b981, #34d399);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .floating-shape {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+            border-radius: 50%;
+            filter: blur(60px);
+            animation: float 20s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(100px, -100px) scale(1.2); }
+            50% { transform: translate(-50px, 50px) scale(0.8); }
+            75% { transform: translate(-100px, -50px) scale(1.1); }
+        }
+
+        .shape1 { width: 300px; height: 300px; top: 10%; left: 10%; }
+        .shape2 { width: 400px; height: 400px; bottom: 10%; right: 10%; background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(245, 158, 11, 0.2)); }
+        .shape3 { width: 250px; height: 250px; top: 50%; left: 50%; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(16, 185, 129, 0.2)); }
+
+        /* Main Container */
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .dashboard-header {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--glass-border);
+            animation: slideDown 0.5s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .nav-btn {
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 0 5px;
+            border: none;
+            background: white;
+            color: var(--dark);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .live-time {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 500;
+            font-size: 18px;
+        }
+
+        .live-time i {
+            color: var(--primary);
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Alert Box */
+        .alert-box {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-left: 6px solid var(--warning);
+            padding: 20px 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            font-size: 18px;
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.2);
+            animation: slideIn 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .alert-box i {
+            font-size: 30px;
+            color: var(--warning);
+            animation: shake 3s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            5% { transform: rotate(10deg); }
+            10% { transform: rotate(-10deg); }
+            15% { transform: rotate(0deg); }
+        }
+
+        /* Weather Cards */
+        .weather-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .weather-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            transform: scale(0);
+        }
+
+        .weather-card:hover::before {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .weather-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 30px 60px rgba(16, 185, 129, 0.3);
+        }
+
+        .weather-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: var(--primary);
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .weather-title {
+            font-size: 16px;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .weather-value {
+            font-size: 36px;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+            margin-bottom: 5px;
+        }
+
+        .weather-unit {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        /* Criteria Cards */
+        .criteria-card {
+            background: var(--glass-bg);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .criteria-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .criteria-card:hover::after {
+            transform: scaleX(1);
+        }
+
+        .criteria-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .criteria-icon {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .criteria-title {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .criteria-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        /* AI Recommendation Card */
+        .ai-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 30px;
+            padding: 30px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            margin: 25px 0;
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+
+        .ai-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .ai-title {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .ai-score {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .ai-status {
+            font-size: 32px;
+            font-weight: 700;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 30px;
+            border-radius: 50px;
+            display: inline-block;
+            animation: glow 2s infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+            50% { box-shadow: 0 0 40px rgba(255,255,255,0.5); }
+        }
+
+        /* Chart Cards */
+        .chart-card {
+            background: var(--glass-bg);
+            border-radius: 30px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--glass-border);
+        }
+
+        .chart-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px dashed #e2e8f0;
+        }
+
+        .chart-title i {
+            color: var(--primary);
+            margin-right: 10px;
+        }
+
+        /* Tool/Calculator Section */
+        .tool-card {
+            background: var(--glass-bg);
+            border-radius: 30px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--glass-border);
+        }
+
+        .tool-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tool-title i {
+            color: var(--primary);
+            font-size: 30px;
+            animation: spin 4s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .form-control {
+            border-radius: 15px;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        .calculate-btn {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 18px;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .calculate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .calculate-btn:hover::before {
+            left: 100%;
+        }
+
+        .calculate-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3);
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            border-radius: 20px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+            animation: popIn 0.5s;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .result-score {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--success);
+        }
+
+        .result-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        /* Loading Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .nav-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .weather-value {
+                font-size: 28px;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gradient-primary);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #059669, #2563eb);
+        }
+
+        #chatbox-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 380px;
+            height: 620px;
+            background: rgba(255,255,255,0.96);
+            backdrop-filter: blur(14px);
+            border-radius: 24px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.22);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 9999;
+            border: 1px solid rgba(255,255,255,0.35);
+        }
+
+        #chatbox-header {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            color: white;
+            padding: 18px 20px;
+            font-weight: 800;
+            font-size: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chatbox-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bot-message, .user-message {
+            padding: 14px 16px;
+            border-radius: 18px;
+            max-width: 88%;
+            font-size: 15px;
+            line-height: 1.7;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .bot-message {
+            background: white;
+            color: #1e293b;
+            align-self: flex-start;
+            border-top-left-radius: 8px;
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            color: white;
+            align-self: flex-end;
+            border-top-right-radius: 8px;
+        }
+
+        .analysis-card {
+            background: linear-gradient(135deg, #f8fafc, #eef2ff);
+            border: 1px solid #dbeafe;
+            border-radius: 18px;
+            padding: 14px;
+            margin-top: 8px;
+            box-shadow: 0 8px 20px rgba(59,130,246,0.08);
+        }
+
+        .analysis-title {
+            font-weight: 800;
+            font-size: 15px;
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+
+        .analysis-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .analysis-badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #d1fae5, #bfdbfe);
+            color: #065f46;
+        }
+
+        #quick-questions {
+            padding: 12px 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        #quick-questions button {
+            background: #f1f5f9;
+            border: none;
+            padding: 9px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        #quick-questions button:hover {
+            background: #dbeafe;
+            transform: translateY(-2px);
+        }
+
+        #chatbox-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 14px;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 16px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        #chat-input:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 4px rgba(16,185,129,0.12);
+        }
+
+        #chatbox-input-area button {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            color: white;
+            border: none;
+            padding: 0 18px;
+            border-radius: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .chat-bottom-tools {
+            text-align: center;
+            padding: 0 0 14px 0;
+            background: white;
+        }
+
+        .chat-bottom-tools button {
+            border: none;
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .typing-bubble {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #94a3b8;
+            border-radius: 50%;
+            animation: blink 1.2s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+            40% { opacity: 1; transform: translateY(-3px); }
+        }
+
+        #chat-toggle-btn {
+            background: rgba(255,255,255,0.18);
+            border: none;
+            color: white;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            font-size: 28px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #chat-toggle-btn:hover {
+            background: rgba(255,255,255,0.28);
+            transform: scale(1.08);
+        }
+
+        #chatbox-container.collapsed {
+            height: 76px !important;
+            overflow: hidden;
+        }
+
+        #chatbox-container.collapsed #chatbox-messages,
+        #chatbox-container.collapsed #quick-questions,
+        #chatbox-container.collapsed #chatbox-input-area,
+        #chatbox-container.collapsed .chat-bottom-tools {
+            display: none !important;
+        }
+
+        #chat-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            color: white;
+            font-size: 28px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+            cursor: pointer;
+            z-index: 9998;
+            display: none;
+            transition: all 0.25s ease;
+        }
+
+        #chat-fab:hover {
+            transform: scale(1.08);
+        }
+
+        #chat-close-btn {
+            background: rgba(255,255,255,0.18);
+            border: none;
+            color: white;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        #chat-close-btn:hover {
+            background: rgba(255,255,255,0.28);
+            transform: scale(1.08);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Animated Background -->
+    <div class="background-animation">
+        <div class="floating-shape shape1"></div>
+        <div class="floating-shape shape2"></div>
+        <div class="floating-shape shape3"></div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="spinner-overlay" id="spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="dashboard-container">
+
+        <!-- Header -->
+        <div class="dashboard-header d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h1 class="header-title">
+                    <i class="fas fa-leaf me-2" style="color: var(--primary);"></i>
+                    Smart Coffee Farm Dashboard
+                </h1>
+            </div>
+            
+            <div class="nav-buttons">
+                <a href="/about/" class="nav-btn">
+                    <i class="fas fa-info-circle me-2"></i>Giới thiệu
+                </a>
+                <a href="/ahp/" class="nav-btn">
+                    <i class="fas fa-chart-pie me-2"></i>Phân tích AHP
+                </a>
+                <a href="/map/" class="nav-btn">
+                    <i class="fas fa-map-marked-alt me-2"></i>Bản đồ vườn
+                </a>
+            </div>
+            
+            <div class="live-time">
+                <i class="fas fa-clock"></i>
+                <span id="time"></span>
+            </div>
+        </div>
+
+        <!-- Alert Box -->
+        <div class="alert-box" id="alertBox">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="alertMessage"></span>
+        </div>
+
+        <!-- Weather Section -->
+        <div class="row g-4" data-aos="fade-up">
+            <div class="col-md-3">
+                <div class="weather-card">
+                    <i class="fas fa-temperature-high weather-icon"></i>
+                    <div class="weather-title">Nhiệt độ</div>
+                    <div class="weather-value">{{ temperature }}°C</div>
+                    <div class="weather-unit">Celsius</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="weather-card">
+                    <i class="fas fa-tint weather-icon"></i>
+                    <div class="weather-title">Độ ẩm</div>
+                    <div class="weather-value">{{ humidity }}%</div>
+                    <div class="weather-unit">Relative</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="weather-card">
+                    <i class="fas fa-cloud-rain weather-icon"></i>
+                    <div class="weather-title">Lượng mưa</div>
+                    <div class="weather-value">{{ rain }}mm</div>
+                    <div class="weather-unit">Last 24h</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="weather-card">
+                    <i class="fas fa-wind weather-icon"></i>
+                    <div class="weather-title">Tốc độ gió</div>
+                    <div class="weather-value">{{ wind }}km/h</div>
+                    <div class="weather-unit">Average</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AHP Criteria Section -->
+        <div class="row g-3 mt-4" data-aos="fade-up" data-aos-delay="100">
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-seedling criteria-icon"></i>
+                    <div class="criteria-title">Độ ẩm đất</div>
+                    <div class="criteria-value">{{ soil_moisture }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-cloud-rain criteria-icon"></i>
+                    <div class="criteria-title">Lượng mưa</div>
+                    <div class="criteria-value">{{ rain }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-water criteria-icon"></i>
+                    <div class="criteria-title">ETo</div>
+                    <div class="criteria-value">{{ eto }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-thermometer-half criteria-icon"></i>
+                    <div class="criteria-title">Nhiệt độ</div>
+                    <div class="criteria-value">{{ temperature }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-droplet criteria-icon"></i>
+                    <div class="criteria-title">Độ ẩm KK</div>
+                    <div class="criteria-value">{{ humidity }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="criteria-card">
+                    <i class="fas fa-sun criteria-icon"></i>
+                    <div class="criteria-title">Bức xạ</div>
+                    <div class="criteria-value">{{ radiation }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Recommendation -->
+        <div class="ai-card" data-aos="zoom-in">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="ai-title">
+                        <i class="fas fa-robot me-2"></i>
+                        AI Khuyến nghị tưới thông minh
+                    </div>
+                    <div class="ai-score">
+                         Độ tin cậy AI: <strong>{{ ai_score }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div class="ai-status" id="irrigationStatus">
+                        {{ irrigation_status }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title"> AI đang phân tích</h4>
+
+            <ul style="font-size:16px; line-height:2;">
+                <li>🌱 Độ ẩm đất: {{ soil_moisture }}</li>
+                <li>🌧 Lượng mưa: {{ rain }}</li>
+                <li>🌡 Nhiệt độ: {{ temperature }}</li>
+                <li>💨 Độ ẩm KK: {{ humidity }}</li>
+                <li>☀️ Bức xạ: {{ radiation }}</li>
+                <li>💧 ETo: {{ eto }}</li>
+            </ul>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">💧 Khuyến nghị tưới</h4>
+
+            <p>
+                👉 Lượng nước: <strong>{{ water_amount }}</strong><br>
+                👉 Thời gian tưới: <strong>{{ duration }}</strong><br>
+                👉 Thời điểm tốt nhất: <strong>Sáng sớm hoặc chiều mát</strong>
+            </p>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">📊 Xác suất dự đoán của AI</h4>
+
+            <div class="row text-center">
+
+                <div class="col-md-3">
+                    <h6>💧 Nhiều</h6>
+                    <div style="font-size:22px; color:red;">
+                        {{ ai_proba.high|default:0 }}%
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <h6>💧 Vừa</h6>
+                    <div style="font-size:22px; color:orange;">
+                        {{ ai_proba.medium|default:0 }}%
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <h6>💧 Ít</h6>
+                    <div style="font-size:22px; color:blue;">
+                        {{ ai_proba.low|default:0 }}%
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <h6>❌ Không</h6>
+                    <div style="font-size:22px; color:green;">
+                        {{ ai_proba.none|default:0 }}%
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {% if ai_warning %}
+        <div class="alert-box">
+            {{ ai_warning }}    
+        </div>
+        {% endif %}
+
+        <div class="alert-box">
+             AI nhận định:
+
+            {% if soil_moisture < 0.25 %}
+                Đất khô → cần tưới nhiều.
+            {% elif soil_moisture > 0.45 %}
+                Đất ẩm → không cần tưới.
+            {% else %}
+                Điều kiện ổn định → tưới vừa.
+            {% endif %}
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">🤖 AI toàn nông trại</h4>
+            <p style="font-size:18px; line-height:1.8;" id="farm-ai-summary">
+                {{ farm_ai_summary }}
+            </p>
+
+            <div class="row text-center mt-3">
+                <div class="col-md-6">
+                    <div class="p-3 rounded-4 shadow-sm" style="background:#f8fff9;">
+                        <h5>💧 Cần ưu tiên tưới</h5>
+                        <h2 class="fw-bold text-danger" id="high-priority-count">{{ high_priority_count }}</h2>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded-4 shadow-sm" style="background:#f8fff9;">
+                        <h5>✅ Vườn ổn định</h5>
+                        <h2 class="fw-bold text-success" id="safe-count">{{ safe_count }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">🌱 Top 5 vườn cần tưới gấp</h4>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên vườn</th>
+                            <th>Độ ẩm đất</th>
+                            <th>AI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-dry-farms-body">
+                        {% for farm in top_dry_farms %}
+                        <tr>
+                            <td>{{ farm.id }}</td>
+                            <td>{{ farm.name }}</td>
+                            <td>{{ farm.soil }}</td>
+                            <td>{{ farm.status }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">⚠️ Vườn có nguy cơ úng</h4>
+            <div id="wet-farms-box">
+                {% if wet_farms %}
+                    <ul style="font-size:16px; line-height:2;">
+                        {% for farm in wet_farms %}
+                            <li>{{ farm.name }} — Độ ẩm đất: {{ farm.soil }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>✅ Hiện chưa có vườn nào nguy cơ úng cao.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-card" data-aos="fade-right">
+                    <h4 class="chart-title">
+                        <i class="fas fa-chart-line"></i>
+                        Biểu đồ nhiệt độ theo thời gian
+                    </h4>
+                    <canvas id="tempChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-card" data-aos="fade-left">
+                    <h4 class="chart-title">
+                        <i class="fas fa-chart-line"></i>
+                        Biểu đồ độ ẩm đất
+                    </h4>
+                    <canvas id="soilChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="chart-card" data-aos="fade-up">
+                    <h4 class="chart-title">
+                        <i class="fas fa-chart-pie"></i>
+                        Thống kê trạng thái tưới
+                    </h4>
+                    <canvas id="farmChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Tool Section -->
+        <div class="tool-card" data-aos="flip-up">
+            <h3 class="tool-title">
+                <i class="fas fa-calculator"></i>
+                AI Đánh giá tưới (AHP)
+            </h3>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <label class="form-label">Độ ẩm đất</label>
+                    <input type="number" class="form-control" id="soil" step="0.01" placeholder="0.25" value="0.25">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Lượng mưa (mm)</label>
+                    <input type="number" class="form-control" id="rainInput" placeholder="10" value="10">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">ETo</label>
+                    <input type="number" class="form-control" id="eto" step="0.1" placeholder="4" value="4">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Nhiệt độ (°C)</label>
+                    <input type="number" class="form-control" id="tempInput" placeholder="27" value="27">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Độ ẩm (%)</label>
+                    <input type="number" class="form-control" id="humidityInput" placeholder="65" value="65">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Bức xạ (W/m²)</label>
+                    <input type="number" class="form-control" id="radiationInput" placeholder="200" value="200">
+                </div>
+            </div>
+
+            <button onclick="calculateAHP()" class="calculate-btn">
+                <i class="fas fa-play me-2"></i>
+                Đánh giá ngay
+            </button>
+
+            <div id="resultBox" class="result-box" style="display: none;">
+                <div class="result-score" id="resultScore"></div>
+                <div class="result-text" id="resultText"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHATBOX AI ===== -->
+    <div id="chatbox-container">
+        <div id="chatbox-header">
+            <span>🤖 Trợ lý AI</span>
+            <div style="display:flex; gap:8px;">
+                <button id="chat-toggle-btn" onclick="toggleChat()">−</button>
+                <button id="chat-close-btn" onclick="closeChatFully()">×</button>
+            </div>
+        </div>
+
+        <div id="chatbox-messages">
+            <div class="bot-message">
+                Xin chào 👋 Tôi có thể giúp bạn phân tích vườn cà phê, tưới nước, nguy cơ khô hạn, úng nước và ưu tiên chăm sóc.
+            </div>
+        </div>
+
+        <div id="quick-questions">
+            <button onclick="quickAsk('Vườn nào khô nhất hiện tại?')">🌱 Khô nhất</button>
+            <button onclick="quickAsk('Top 5 vườn cần tưới')">💧 Top tưới</button>
+            <button onclick="quickAsk('Có vườn nào bị úng không?')">⚠️ Úng</button>
+            <button onclick="quickAsk('Bao nhiêu vườn đang cần tưới nhiều?')">📊 Thống kê</button>
+            <button onclick="quickAsk('AI dựa vào gì để tưới?')">🤖 AI</button>
+        </div>
+
+        <div id="chatbox-input-area">
+            <input type="text" id="chat-input" placeholder="Ví dụ: vườn nào khô nhất, vườn 5 sao rồi, có vườn nào úng không..." />
+            <button onclick="sendMessage()">Gửi</button>
+        </div>
+
+        <div class="chat-bottom-tools">
+            <button onclick="clearChat()">🗑 Xóa chat</button>
+        </div>
+    </div>
+
+    <button id="chat-fab" onclick="openChat()">🤖</button>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+
+        // Clock Update
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('time').innerHTML = `${hours}:${minutes}:${seconds}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ===== DỮ LIỆU TỪ DJANGO (AN TOÀN) =====
+        const soilMoisture = parseFloat("{{ soil_moisture|default:0 }}");
+        const tempLabels = JSON.parse('{{ labels|escapejs }}'.replace(/'/g, '"'));
+        const tempValues = JSON.parse('{{ values|escapejs }}'.replace(/'/g, '"'));
+        const soilLabels = JSON.parse('{{ soil_labels|escapejs }}'.replace(/'/g, '"'));
+        const soilValues = JSON.parse('{{ soil_values|escapejs }}'.replace(/'/g, '"'));
+
+        // ===== ALERT SYSTEM =====
+        let alertMessage = '';
+
+        if (soilMoisture < 0.2) {
+            alertMessage = '⚠ Đất quá khô — Cần tưới nhiều ngay lập tức!';
+        } else if (soilMoisture > 0.5) {
+            alertMessage = '⚠ Đất quá ẩm — Không cần tưới, tránh úng rễ!';
+        } else {
+            alertMessage = '✅ Điều kiện đất ổn định — Theo dõi thường xuyên';
+        }
+
+        document.getElementById('alertMessage').innerHTML = alertMessage;
+        // ===== AI CHỦ ĐỘNG =====
+        setTimeout(() => {
+            const messages = document.getElementById("chatbox-messages");
+
+            if (messages) {
+                messages.innerHTML += `<div class="bot-message">⚠️ AI phát hiện đất có thể khô, bạn có muốn xem vườn cần tưới không?</div>`;
+            }
+        }, 3000);
+
+        // ===== TEMPERATURE CHART =====
+        new Chart(document.getElementById('tempChart'), {
+            type: 'line',
+            data: {
+                labels: tempLabels,
+                datasets: [{
+                    label: 'Nhiệt độ (°C)',
+                    data: tempValues,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+                }
+            }
+        });
+
+        // ===== SOIL MOISTURE CHART =====
+        new Chart(document.getElementById('soilChart'), {
+            type: 'line',
+            data: {
+                labels: soilLabels,
+                datasets: [{
+                    label: 'Độ ẩm đất',
+                    data: soilValues,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 1, grid: { color: 'rgba(0,0,0,0.05)' } }
+                }
+            }
+        });
+
+        // ===== FARM STATISTICS CHART =====
+        new Chart(document.getElementById('farmChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Tưới nhiều', 'Tưới vừa', 'Tưới ít', 'Không tưới'],
+                datasets: [{
+                    data: [8, 15, 10, 7],
+                    backgroundColor: [
+                        '#ef4444',
+                        '#f59e0b',
+                        '#fbbf24',
+                        '#10b981'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { font: { size: 14, weight: 'bold' } }
+                    }
+                }
+            }
+        });
+
+        // ===== AHP CALCULATION FUNCTION =====
+        function calculateAHP() {
+            document.getElementById('spinner').style.display = 'flex';
+
+            const soil = document.getElementById('soil').value;
+            const rain = document.getElementById('rainInput').value;
+            const eto = document.getElementById('eto').value;
+            const temp = document.getElementById('tempInput').value;
+            const humidity = document.getElementById('humidityInput').value;
+            const radiation = document.getElementById('radiationInput').value;
+
+            setTimeout(() => {
+                let score = (
+                    parseFloat(soil) * 0.25 +
+                    (parseFloat(rain) / 50) * 0.20 +
+                    (parseFloat(eto) / 8) * 0.18 +
+                    (parseFloat(temp) / 40) * 0.15 +
+                    (parseFloat(humidity) / 100) * 0.12 +
+                    (parseFloat(radiation) / 1000) * 0.10
+                ).toFixed(2);
+
+                let status = '';
+                if (score < 0.3) status = 'Không tưới';
+                else if (score < 0.5) status = 'Tưới ít';
+                else if (score < 0.7) status = 'Tưới vừa';
+                else status = 'Tưới nhiều';
+
+                document.getElementById('resultScore').innerHTML = `Điểm: ${score}`;
+                document.getElementById('resultText').innerHTML = `→ ${status}`;
+                document.getElementById('resultBox').style.display = 'block';
+
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('irrigationStatus').innerHTML = status;
+            }, 1000);
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            location.reload();
+        }, 60000);
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Hover effect
+        document.querySelectorAll('.criteria-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-10px)';
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Ctrl + Enter shortcut
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                calculateAHP();
+            }
+        });
+
+        // ===== CHATBOX =====
+        let lastContext = null;
+
+        // gửi tin nhắn
+        function sendMessage() {
+            const input = document.getElementById("chat-input");
+            const messages = document.getElementById("chatbox-messages");
+            let text = input.value.trim();
+
+            if (!text) return;
+
+            if (text.toLowerCase().includes("tại sao") && lastContext) {
+                text = lastContext + " tại sao?";
+            }
+
+            messages.innerHTML += `<div class="user-message">${text}</div>`;
+            input.value = "";
+
+            messages.innerHTML += `<div class="bot-message" id="typing">🤖 AI đang phân tích...</div>`;
+            messages.scrollTop = messages.scrollHeight;
+
+            fetch("/chatbot/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+                body: JSON.stringify({ message: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("typing")?.remove();
+
+                if (data.card) {
+                    messages.innerHTML += `
+                        <div class="bot-message">
+                            <div style="background:#f8fafc; border-radius:12px; padding:12px;">
+                                <strong>📍 ${data.card.name}</strong><br>
+                                🌱 Độ ẩm đất: ${data.card.soil}<br>
+                                🌡 Nhiệt độ: ${data.card.temp}°C<br>
+                                🌧 Mưa: ${data.card.rain} mm<br>
+                                💧 ETo: ${data.card.eto}<br>
+                                🤖 AI: ${data.card.status}
+                            </div>
+                            <div style="margin-top:8px;">${data.reply.replace(/\n/g, "<br>")}</div>
+                        </div>
+                    `;
+                    lastContext = data.card.name;
+                } else {
+                    messages.innerHTML += `<div class="bot-message">${data.reply.replace(/\n/g, "<br>")}</div>`;
+                }
+
+                messages.scrollTop = messages.scrollHeight;
+            })
+            .catch(err => {
+                document.getElementById("typing")?.remove();
+                messages.innerHTML += `<div class="bot-message">⚠️ Không thể kết nối chatbot.</div>`;
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // gợi ý nhanh
+        function quickAsk(question) {
+            document.getElementById("chat-input").value = question;
+            sendMessage();
+        }
+
+        function clearChat() {
+            document.getElementById("chatbox-messages").innerHTML = `
+                <div class="bot-message">
+                    Xin chào 👋 Tôi có thể giúp bạn phân tích vườn cà phê, tưới nước, nguy cơ khô hạn, úng nước và ưu tiên chăm sóc.
+                </div>
+            `;
+            lastContext = null;
+        }
+
+        let chatCollapsed = false;
+
+        function toggleChat() {
+            const box = document.getElementById("chatbox-container");
+            const toggleBtn = document.getElementById("chat-toggle-btn");
+
+            chatCollapsed = !chatCollapsed;
+
+            if (chatCollapsed) {
+                box.classList.add("collapsed");
+                toggleBtn.innerHTML = "+";
+            } else {
+                box.classList.remove("collapsed");
+                toggleBtn.innerHTML = "−";
+            }
+        }
+
+        function openChat() {
+            const box = document.getElementById("chatbox-container");
+            const fab = document.getElementById("chat-fab");
+            const toggleBtn = document.getElementById("chat-toggle-btn");
+
+            box.style.display = "flex";
+            fab.style.display = "none";
+            box.classList.remove("collapsed");
+            toggleBtn.innerHTML = "−";
+            chatCollapsed = false;
+        }
+
+        function closeChatFully() {
+            const box = document.getElementById("chatbox-container");
+            const fab = document.getElementById("chat-fab");
+
+            box.style.display = "none";
+            fab.style.display = "block";
+        }
+
+        async function refreshFarmDashboard() {
+            try {
+                const res = await fetch("/gardens_realtime/");
+                const farms = await res.json();
+
+                // Top 5 khô nhất
+                const sorted = [...farms].sort((a, b) => a.soil - b.soil);
+                const top5 = sorted.slice(0, 5);
+                const wetFarms = farms.filter(f => f.soil > 0.48);
+                const highPriority = farms.filter(f => (f.status || "").toLowerCase().includes("nhiều")).length;
+                const safeCount = farms.filter(f => {
+                    const s = (f.status || "").toLowerCase();
+                    return s.includes("không") || s.includes("ít");
+                }).length;
+
+                // AI summary
+                document.getElementById("farm-ai-summary").innerText =
+                    `AI đang theo dõi ${farms.length} vườn. Hiện có ${highPriority} vườn cần ưu tiên tưới và ${wetFarms.length} vườn có nguy cơ úng.`;
+
+                document.getElementById("high-priority-count").innerText = highPriority;
+                document.getElementById("safe-count").innerText = safeCount;
+
+                // Top dry farms table
+                const topBody = document.getElementById("top-dry-farms-body");
+                topBody.innerHTML = "";
+                top5.forEach(farm => {
+                    topBody.innerHTML += `
+                        <tr>
+                            <td>${farm.id}</td>
+                            <td>${farm.name}</td>
+                            <td>${farm.soil}</td>
+                            <td>${farm.status}</td>
+                        </tr>
+                    `;
+                });
+
+                // Wet farms
+                const wetBox = document.getElementById("wet-farms-box");
+                if (wetFarms.length > 0) {
+                    wetBox.innerHTML = "<ul style='font-size:16px; line-height:2;'>" +
+                        wetFarms.map(f => `<li>${f.name} — Độ ẩm đất: ${f.soil}</li>`).join("") +
+                        "</ul>";
+                } else {
+                    wetBox.innerHTML = "<p>✅ Hiện chưa có vườn nào nguy cơ úng cao.</p>";
+                }
+
+                // All farms table
+                const allBody = document.getElementById("all-farms-body");
+                allBody.innerHTML = "";
+                farms.forEach(farm => {
+                    allBody.innerHTML += `
+                        <tr>
+                            <td>${farm.id}</td>
+                            <td>${farm.name}</td>
+                            <td>${farm.soil}</td>
+                            <td>${farm.rain}</td>
+                            <td>${farm.eto}</td>
+                            <td>${farm.temp}</td>
+                            <td>${farm.status}</td>
+                            <td>${farm.score}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (err) {
+                console.error("Lỗi refreshFarmDashboard:", err);
+            }
+        }
+
+        // load ngay
+        refreshFarmDashboard();
+
+        // tự cập nhật mỗi 60s
+        setInterval(refreshFarmDashboard, 60000);
+
+        document.getElementById("chat-input").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

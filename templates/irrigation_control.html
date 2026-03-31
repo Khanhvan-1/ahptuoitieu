@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Irrigation Control</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+
+body{
+background:#f4f6f9;
+}
+
+.card{
+border-radius:15px;
+box-shadow:0 4px 15px rgba(0,0,0,0.1);
+}
+
+.stat{
+font-size:22px;
+font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+<h2> Irrigation Control</h2>
+
+
+
+<!-- MODE -->
+
+<div class="card p-4 mt-4">
+
+<h4>Mode</h4>
+
+<select id="mode" class="form-control">
+
+<option value="AI">AI</option>
+<option value="Manual">Manual</option>
+
+</select>
+
+</div>
+
+
+
+<!-- AI MODE PANEL -->
+
+<div class="card p-4 mt-4">
+
+<h4> AI Irrigation Panel</h4>
+
+<div class="row">
+
+<div class="col-md-2 text-center">
+Soil<br>
+<span class="stat" id="soil">--</span>
+</div>
+
+<div class="col-md-2 text-center">
+Rain<br>
+<span class="stat" id="rain">--</span>
+</div>
+
+<div class="col-md-2 text-center">
+ETo<br>
+<span class="stat" id="eto">--</span>
+</div>
+
+<div class="col-md-2 text-center">
+Temp<br>
+<span class="stat" id="temp">--</span>
+</div>
+
+<div class="col-md-2 text-center">
+Humidity<br>
+<span class="stat" id="humidity">--</span>
+</div>
+
+<div class="col-md-2 text-center">
+Radiation<br>
+<span class="stat" id="radiation">--</span>
+</div>
+
+</div>
+
+<hr>
+
+<h3 id="aiResult" class="text-success text-center">
+
+AI đang phân tích...
+
+</h3>
+
+</div>
+
+
+
+<!-- MANUAL CONTROL -->
+
+<div class="card p-4 mt-4">
+
+<h4>Manual Control</h4>
+
+<button class="btn btn-success w-100 mb-2" onclick="startIrrigation()">
+
+Start
+
+</button>
+
+<button class="btn btn-danger w-100" onclick="stopIrrigation()">
+
+Stop
+
+</button>
+
+</div>
+
+
+
+<!-- TIMER -->
+
+<div class="card p-4 mt-4">
+
+<h4>Timer Irrigation</h4>
+
+<input id="minutes" class="form-control" placeholder="Minutes">
+
+<button class="btn btn-primary w-100 mt-2" onclick="startTimer()">
+
+Start Timer
+
+</button>
+
+</div>
+
+
+
+<!-- WATER USAGE -->
+
+<div class="card p-4 mt-4">
+
+<h4>Water Usage</h4>
+
+<h3 id="water">0 L</h3>
+
+</div>
+
+</div>
+
+
+
+<script>
+
+
+/* ======================
+IRRIGATION CONTROL
+====================== */
+
+let irrigation=false
+let water=0
+
+
+function startIrrigation(){
+
+irrigation=true
+
+}
+
+
+function stopIrrigation(){
+
+irrigation=false
+
+}
+
+
+setInterval(function(){
+
+if(irrigation){
+
+water+=5
+
+document.getElementById("water").innerHTML=water+" L"
+
+}
+
+},3000)
+
+
+
+/* ======================
+TIMER
+====================== */
+
+function startTimer(){
+
+let m=document.getElementById("minutes").value
+
+startIrrigation()
+
+setTimeout(function(){
+
+stopIrrigation()
+
+},m*60000)
+
+}
+
+
+
+/* ======================
+AI PANEL DATA
+====================== */
+
+function loadAI(){
+
+fetch("/map_status/")
+
+.then(res=>res.json())
+
+.then(data=>{
+
+document.getElementById("soil").innerHTML=data.soil
+document.getElementById("rain").innerHTML=data.rain
+document.getElementById("eto").innerHTML=data.eto
+document.getElementById("temp").innerHTML=data.temp
+document.getElementById("humidity").innerHTML=data.humidity
+document.getElementById("radiation").innerHTML=data.radiation
+
+document.getElementById("aiResult").innerHTML=
+" AI Khuyến nghị: "+data.status
+
+})
+
+}
+
+
+/* realtime update */
+
+setInterval(loadAI,15000)
+
+loadAI()
+
+</script>
+
+</body>
+
+</html>

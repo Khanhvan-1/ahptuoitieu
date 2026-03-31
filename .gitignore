@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Django
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# VS Code
+.vscode/
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+
+# Build
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Migrations cache
+**/__pycache__/

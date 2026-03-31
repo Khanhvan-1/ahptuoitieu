@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Coffee Map - Bản đồ vườn cà phê Đắk Lắk</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- AOS Animation -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Background */
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .floating-shape {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(44, 123, 229, 0.2), rgba(0, 201, 167, 0.2));
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: float 20s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(100px, -100px) scale(1.2); }
+            50% { transform: translate(-50px, 50px) scale(0.8); }
+            75% { transform: translate(-100px, -50px) scale(1.1); }
+        }
+
+        .shape1 { width: 500px; height: 500px; top: 10%; left: 10%; }
+        .shape2 { width: 600px; height: 600px; bottom: 10%; right: 10%; background: linear-gradient(135deg, rgba(211, 47, 47, 0.2), rgba(245, 158, 11, 0.2)); }
+        .shape3 { width: 400px; height: 400px; top: 50%; left: 50%; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(44, 123, 229, 0.2)); }
+
+        /* Custom Cursor */
+        .cursor {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #2c7be5;
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: 0.1s;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+        }
+
+        .cursor-follower {
+            width: 40px;
+            height: 40px;
+            background: rgba(44, 123, 229, 0.2);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            transition: 0.15s;
+            transform: translate(-50%, -50%);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Header */
+        .map-header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 30px;
+            margin: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: slideDown 0.5s ease-out;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .map-header h2 {
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .map-header h2::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            border-radius: 2px;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.5s;
+        }
+
+        .map-header:hover h2::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: flex;
+            gap: 15px;
+            margin: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            flex: 1;
+            min-width: 150px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            transform: scale(0);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #2c7be5;
+            box-shadow: 0 20px 40px rgba(44, 123, 229, 0.3);
+        }
+
+        .stat-icon {
+            font-size: 30px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 5px;
+            background: linear-gradient(135deg, #fff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Map Container */
+        .map-wrapper {
+            margin: 20px;
+            position: relative;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+
+        .map-wrapper:hover {
+            border-color: #2c7be5;
+            box-shadow: 0 40px 80px rgba(44, 123, 229, 0.4);
+        }
+
+        #map {
+            height: 650px;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* Map Controls */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 20px;
+        }
+
+        .control-btn:hover {
+            background: #2c7be5;
+            transform: scale(1.1);
+            box-shadow: 0 10px 20px rgba(44, 123, 229, 0.4);
+        }
+
+        /* Legend */
+        .custom-legend {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            padding: 5px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .legend-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        /* Search Box */
+        .search-box {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            padding: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            margin: 20px;
+            max-width: 400px;
+        }
+
+        .search-box input {
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 15px 20px;
+            flex: 1;
+            outline: none;
+            font-size: 16px;
+        }
+
+        .search-box input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .search-box button {
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            border: none;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .search-box button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #2c7be5;
+        }
+
+        /* Loading Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255,255,255,0.1);
+            border-top: 5px solid #2c7be5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Tooltip */
+        .tooltip-info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideUp 0.5s;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .map-header h2 {
+                font-size: 24px;
+            }
+            
+            .stats-container {
+                flex-direction: column;
+            }
+            
+            .stat-card {
+                min-width: auto;
+            }
+            
+            .cursor, .cursor-follower {
+                display: none;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            border-radius: 5px;
+        }
+
+        /* Popup Customization */
+        .leaflet-popup-content-wrapper {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(30, 41, 59, 0.95);
+        }
+
+        .leaflet-popup-close-button {
+            color: white !important;
+        }
+
+        .popup {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .popup a {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .popup a:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(44, 123, 229, 0.4);
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #2c7be5, #00c9a7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(44, 123, 229, 0.4);
+            transition: all 0.3s;
+            z-index: 1000;
+            border: none;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 20px 40px rgba(44, 123, 229, 0.6);
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 50px;
+            border-left: 5px solid #2c7be5;
+            color: white;
+            transform: translateX(120%);
+            transition: transform 0.5s;
+            z-index: 1001;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Custom Cursor -->
+    <div class="cursor"></div>
+    <div class="cursor-follower"></div>
+
+    <!-- Loading Spinner -->
+    <div class="spinner-overlay" id="spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Animated Background -->
+    <div class="background-animation">
+        <div class="floating-shape shape1"></div>
+        <div class="floating-shape shape2"></div>
+        <div class="floating-shape shape3"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="map-header" data-aos="fade-down">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2>
+                    <i class="fas fa-map-marked-alt me-3" style="color: #2c7be5;"></i>
+                    Smart Coffee Map - Đắk Lắk
+                </h2>
+                <p style="color: rgba(255,255,255,0.7); margin-top: 10px;">
+                    <i class="fas fa-coffee me-2" style="color: #00c9a7;"></i>
+                    Hệ thống giám sát 40 vườn cà phê thông minh
+                </p>
+            </div>
+            <div class="d-flex gap-3">
+                <span class="badge bg-primary p-3" style="background: linear-gradient(135deg, #2c7be5, #00c9a7) !important;">
+                    <i class="fas fa-sync-alt me-2"></i>Real-time
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-container" data-aos="fade-up" data-aos-delay="100">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-map-pin"></i></div>
+            <div class="stat-label">Tổng số vườn</div>
+            <div class="stat-value" id="totalGardens">40</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-tint"></i></div>
+            <div class="stat-label">Độ ẩm TB</div>
+            <div class="stat-value" id="avgMoisture">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-temperature-high"></i></div>
+            <div class="stat-label">Nhiệt độ TB</div>
+            <div class="stat-value" id="avgTemp">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-cloud-rain"></i></div>
+            <div class="stat-label">Lượng mưa TB</div>
+            <div class="stat-value" id="avgRain">--</div>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="search-box" data-aos="fade-right" data-aos-delay="200">
+        <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm vườn cà phê...">
+        <button onclick="searchGarden()">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-wrapper" data-aos="zoom-in" data-aos-delay="300">
+        <div id="map"></div>
+        
+        <!-- Map Controls -->
+        <div class="map-controls">
+            <div class="control-btn" onclick="zoomIn()">
+                <i class="fas fa-plus"></i>
+            </div>
+            <div class="control-btn" onclick="zoomOut()">
+                <i class="fas fa-minus"></i>
+            </div>
+            <div class="control-btn" onclick="resetView()">
+                <i class="fas fa-home"></i>
+            </div>
+            <div class="control-btn" onclick="toggleLayers()">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <div class="control-btn" onclick="toggleFullscreen()">
+                <i class="fas fa-expand"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip-info" id="tooltip">
+        <i class="fas fa-info-circle me-2" style="color: #2c7be5;"></i>
+        <span id="tooltipText">Đang tải dữ liệu...</span>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" onclick="refreshData()">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle me-2" style="color: #00c9a7;"></i>
+        <span id="notificationText"></span>
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+
+        // Custom Cursor
+        const cursor = document.querySelector('.cursor');
+        const cursorFollower = document.querySelector('.cursor-follower');
+
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            
+            setTimeout(() => {
+                cursorFollower.style.left = e.clientX + 'px';
+                cursorFollower.style.top = e.clientY + 'px';
+            }, 50);
+        });
+
+        // Hover effect
+        document.querySelectorAll('button, .stat-card, .control-btn, .fab, a').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                cursorFollower.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+                cursorFollower.style.transform = 'translate(-50%, -50%) scale(1)';
+            });
+        });
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            notificationText.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Update tooltip
+        function updateTooltip(text) {
+            document.getElementById('tooltipText').textContent = text;
+        }
+
+        // Show spinner
+        function showSpinner() {
+            document.getElementById('spinner').style.display = 'flex';
+        }
+
+        function hideSpinner() {
+            document.getElementById('spinner').style.display = 'none';
+        }
+
+        // =========================
+        // MAP
+        // =========================
+        var map = L.map('map').setView([12.67, 108.05], 9)
+
+        var street = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }
+        )
+
+        var satellite = L.tileLayer(
+            'http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }
+        )
+
+        var hybrid = L.tileLayer(
+            'http://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }
+        )
+
+        street.addTo(map)
+
+        L.control.layers({
+            "Street Map": street,
+            "Google Satellite": satellite,
+            "Google Hybrid": hybrid
+        }).addTo(map)
+
+        // =========================
+        // ZOOM TỪ AHP
+        // =========================
+        const params = new URLSearchParams(window.location.search)
+        let focusLat = parseFloat(params.get("lat"))
+        let focusLon = parseFloat(params.get("lon"))
+        let focusName = params.get("name")
+        let ahpResult = params.get("result")
+        let highlightMarker = null
+
+        if (!isNaN(focusLat) && !isNaN(focusLon)) {
+            map.setView([focusLat, focusLon], 14)
+            showNotification(`Đang xem: ${focusName}`, 'info')
+        }
+
+        // =========================
+        // CUSTOM LEGEND
+        // =========================
+        var legend = L.control({ position: 'bottomright' })
+
+        legend.onAdd = function() {
+            var div = L.DomUtil.create('div', 'custom-legend')
+            div.innerHTML = `
+                <h6 style="color:white; margin-bottom:10px;">
+                    <i class="fas fa-info-circle me-2" style="color:#2c7be5;"></i>
+                    Chú thích
+                </h6>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:red; box-shadow:0 0 10px red;"></div>
+                    <span style="color:white;">Tưới nhiều</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:orange; box-shadow:0 0 10px orange;"></div>
+                    <span style="color:white;">Tưới vừa</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:yellow; box-shadow:0 0 10px yellow;"></div>
+                    <span style="color:white;">Tưới ít</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:green; box-shadow:0 0 10px green;"></div>
+                    <span style="color:white;">Không tưới</span>
+                </div>
+                <hr style="border-color:rgba(255,255,255,0.1); margin:10px 0;">
+                <div style="color:rgba(255,255,255,0.7); font-size:12px;">
+                    <i class="fas fa-sync-alt me-1"></i> Cập nhật: 15s
+                </div>
+            `
+            return div
+        }
+
+        legend.addTo(map)
+
+        // =========================
+        // AI COLOR
+        // =========================
+        function getColor(status) {
+            if (status.includes("Tưới nhiều")) return "red"
+            if (status.includes("Tưới vừa")) return "orange"
+            if (status.includes("Tưới ít")) return "yellow"
+            return "green"
+        }
+
+        // =========================
+        // 40 VƯỜN CÀ PHÊ
+        // =========================
+        var farms = [
+            { name: "Vườn cà phê Ea Tu", lat: 12.839397, lon: 108.083073 },
+            { name: "Vườn cà phê Cư Êbur", lat: 12.831239, lon: 108.013266 },
+            { name: "Vườn cà phê Hòa Thuận", lat: 12.853666, lon: 108.039238 },
+            { name: "Vườn cà phê Ea Kao", lat: 12.843114, lon: 108.048993 },
+            { name: "Vườn cà phê Hòa Phú", lat: 12.8284, lon: 108.036143 },
+            { name: "Vườn cà phê Cư M'gar", lat: 12.852613, lon: 108.015429 },
+            { name: "Vườn cà phê Quảng Phú", lat: 12.838029, lon: 108.030949 },
+            { name: "Vườn cà phê Ea Ktur", lat: 12.843413, lon: 108.068336 },
+            { name: "Vườn cà phê Ea Ning", lat: 12.851642, lon: 108.05514 },
+            { name: "Vườn cà phê Krông Ana", lat: 12.852782, lon: 108.038755 },
+            { name: "Vườn cà phê Krông Pắk", lat: 12.829995, lon: 108.063786 },
+            { name: "Vườn cà phê Ea Kênh", lat: 12.854695, lon: 108.066167 },
+            { name: "Vườn cà phê Ea Yông", lat: 12.847798, lon: 108.070504 },
+            { name: "Vườn cà phê Ea H'leo", lat: 13.284567, lon: 108.051906 },
+            { name: "Vườn cà phê Dliê Yang", lat: 13.375505, lon: 107.959591 },
+            { name: "Vườn cà phê Ea Wy", lat: 13.279939, lon: 108.028133 },
+            { name: "Vườn cà phê Ea Tir", lat: 13.29311, lon: 108.029135 },
+            { name: "Vườn cà phê Ea Hiao", lat: 13.31395, lon: 108.087536 },
+            { name: "Vườn cà phê Ea Sol", lat: 13.355585, lon: 108.007306 },
+            { name: "Vườn cà phê Ea Tul", lat: 13.365224, lon: 107.972343 },
+            { name: "Vườn cà phê Krông Búk", lat: 12.804667, lon: 108.357472 },
+            { name: "Vườn cà phê Pơng Drang", lat: 12.776557, lon: 108.382276 },
+            { name: "Vườn cà phê Ea Drông", lat: 12.81314, lon: 108.384572 },
+            { name: "Vườn cà phê Ea H'đing", lat: 12.815973, lon: 108.404226 },
+            { name: "Vườn cà phê Cư Bao", lat: 12.788318, lon: 108.396326 },
+            { name: "Vườn cà phê Ea Siên", lat: 12.742165, lon: 108.395578 },
+            { name: "Vườn cà phê Ea Blang", lat: 12.81426, lon: 108.398892 },
+            { name: "Vườn cà phê Ea Drăng", lat: 12.735553, lon: 108.392551 },
+            { name: "Vườn cà phê Ea Khal", lat: 12.782596, lon: 108.391748 },
+            { name: "Vườn cà phê M'Drắk", lat: 12.654579, lon: 108.734988 },
+            { name: "Vườn cà phê Krông Jing", lat: 12.643134, lon: 108.715825 },
+            { name: "Vườn cà phê Cư Prao", lat: 12.681652, lon: 108.701336 },
+            { name: "Vườn cà phê Ea Riêng", lat: 12.643495, lon: 108.728073 },
+            { name: "Vườn cà phê Ea M'Doal", lat: 12.682944, lon: 108.725666 },
+            { name: "Vườn cà phê Ea Lai", lat: 12.685494, lon: 108.718157 },
+            { name: "Vườn cà phê Krông Á", lat: 12.642569, lon: 108.698183 },
+            { name: "Vườn cà phê Cư Króa", lat: 12.675957, lon: 108.75069 },
+            { name: "Vườn cà phê Ea Trang", lat: 12.702014, lon: 108.68606 },
+            { name: "Vườn cà phê Krông Nô", lat: 12.645324, lon: 108.715269 },
+            { name: "Vườn cà phê Cư San", lat: 12.63606, lon: 108.758818 }
+        ]
+
+        // =========================
+        // MARKERS
+        // =========================
+        var markers = []
+
+        farms.forEach(function(farm) {
+            var marker = L.circleMarker([farm.lat, farm.lon], {
+                radius: 10,
+                color: "green",
+                fillColor: "green",
+                fillOpacity: 0.9,
+                weight: 2
+            }).addTo(map)
+
+            markers.push(marker)
+        })
+
+        // =========================
+        // LOAD DATA
+        // =========================
+        focusLat = parseFloat(focusLat)
+        focusLon = parseFloat(focusLon)
+
+        function loadData() {
+            showSpinner()
+            updateTooltip('Đang tải dữ liệu...')
+            
+            let totalMoisture = 0
+            let totalTemp = 0
+            let totalRain = 0
+            let count = 0
+
+            markers.forEach(function(marker, i) {
+                let farm = farms[i]
+
+                // Simulate API call
+                setTimeout(() => {
+                    let data = {
+                        color: ['red', 'orange', 'yellow', 'green'][Math.floor(Math.random() * 4)],
+                        status: ['Tưới nhiều', 'Tưới vừa', 'Tưới ít', 'Không tưới'][Math.floor(Math.random() * 4)],
+                        soil: (Math.random() * 7 + 3).toFixed(1),
+                        rain: Math.floor(Math.random() * 150 + 50),
+                        eto: (Math.random() * 5 + 2).toFixed(1),
+                        temp: (Math.random() * 12 + 18).toFixed(1),
+                        humidity: Math.floor(Math.random() * 30 + 60),
+                        radiation: Math.floor(Math.random() * 400 + 200)
+                    }
+
+                    let resultText = data.status
+
+                    if (focusName && farm.name == focusName) {
+                        resultText = "Kết quả AHP: " + decodeURIComponent(ahpResult || '')
+                    }
+
+                    let popup =
+                        "<div class='popup'>" +
+                        "<b style='font-size:16px; color:#2c7be5;'>" + farm.name + "</b><br>" +
+                        "<i class='fas fa-map-pin' style='color:#00c9a7;'></i> " + farm.lat.toFixed(3) + ", " + farm.lon.toFixed(3) + "<hr style='border-color:rgba(255,255,255,0.1);'>" +
+                        "<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px;'>" +
+                        "<div><i class='fas fa-tint' style='color:#2c7be5;'></i> Đất: " + data.soil + "</div>" +
+                        "<div><i class='fas fa-cloud-rain' style='color:#00c9a7;'></i> Mưa: " + data.rain + "mm</div>" +
+                        "<div><i class='fas fa-water' style='color:#2c7be5;'></i> ETo: " + data.eto + "</div>" +
+                        "<div><i class='fas fa-temperature-high' style='color:#f57c00;'></i> " + data.temp + "°C</div>" +
+                        "<div><i class='fas fa-droplet' style='color:#2c7be5;'></i> KK: " + data.humidity + "%</div>" +
+                        "<div><i class='fas fa-sun' style='color:#fbc02d;'></i> BX: " + data.radiation + "</div>" +
+                        "</div><hr style='border-color:rgba(255,255,255,0.1);'>" +
+                        "<b style='color:" + getColor(resultText) + "; font-size:16px;'>" + resultText + "</b><br><br>" +
+                        "<a href='/ahp/?lat=" + farm.lat +
+                        "&lon=" + farm.lon +
+                        "&name=" + encodeURIComponent(farm.name) +
+                        "&soil=" + data.soil +
+                        "&rain=" + data.rain +
+                        "&temp=" + data.temp +
+                        "&humidity=" + data.humidity +
+                        "&eto=" + data.eto +
+                        "&radiation=" + data.radiation +
+                        "' target='_blank'><i class='fas fa-chart-pie me-2'></i>Phân tích AHP</a>" +
+                        "</div>"
+
+                    if (marker.getPopup()) {
+                        marker.setPopupContent(popup)
+                    } else {
+                        marker.bindPopup(popup)
+                    }
+
+                    marker.setStyle({
+                        color: data.color,
+                        fillColor: data.color
+                    })
+
+                    // Update stats
+                    totalMoisture += parseFloat(data.soil)
+                    totalTemp += parseFloat(data.temp)
+                    totalRain += data.rain
+                    count++
+
+                    if (count === farms.length) {
+                        document.getElementById('avgMoisture').textContent = (totalMoisture / count).toFixed(1)
+                        document.getElementById('avgTemp').textContent = (totalTemp / count).toFixed(1) + '°C'
+                        document.getElementById('avgRain').textContent = Math.round(totalRain / count) + 'mm'
+                        
+                        hideSpinner()
+                        updateTooltip('Dữ liệu đã được cập nhật')
+                        showNotification('Dữ liệu đã được cập nhật')
+                    }
+
+                    // Highlight điểm quay lại từ AHP
+                    if (!isNaN(focusLat) && !isNaN(focusLon)) {
+                        if (farm.name == focusName) {
+                            map.setView([farm.lat, farm.lon], 15)
+                            marker.openPopup()
+
+                            if (!highlightMarker) {
+                                highlightMarker = L.circleMarker([farm.lat, farm.lon], {
+                                    radius: 22,
+                                    color: "blue",
+                                    fill: false,
+                                    weight: 4
+                                }).addTo(map)
+                            }
+                        }
+                    }
+                }, i * 50) // Stagger requests
+            })
+        }
+
+        // =========================
+        // SEARCH FUNCTION
+        // =========================
+        function searchGarden() {
+            let searchTerm = document.getElementById('searchInput').value.toLowerCase()
+            let found = farms.find(f => f.name.toLowerCase().includes(searchTerm))
+            
+            if (found) {
+                map.setView([found.lat, found.lon], 14)
+                showNotification('Đã tìm thấy: ' + found.name)
+                
+                // Find and open popup
+                markers.forEach((marker, i) => {
+                    if (farms[i].name === found.name) {
+                        marker.openPopup()
+                    }
+                })
+            } else {
+                showNotification('Không tìm thấy vườn phù hợp', 'error')
+            }
+        }
+
+        // =========================
+        // MAP CONTROLS
+        // =========================
+        function zoomIn() {
+            map.zoomIn()
+        }
+
+        function zoomOut() {
+            map.zoomOut()
+        }
+
+        function resetView() {
+            map.setView([12.67, 108.05], 9)
+            showNotification('Đã reset về chế độ xem mặc định')
+        }
+
+        function toggleLayers() {
+            // This will trigger the layer control
+            document.querySelector('.leaflet-control-layers').classList.toggle('leaflet-control-layers-expanded')
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen()
+                showNotification('Chế độ toàn màn hình')
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen()
+                }
+            }
+        }
+
+        function refreshData() {
+            showNotification('Đang làm mới dữ liệu...')
+            loadData()
+        }
+
+        // =========================
+        // REAL-TIME UPDATES
+        // =========================
+        loadData()
+        setInterval(loadData, 15000)
+
+        // Enter key for search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchGarden()
+            }
+        })
+    </script>
+</body>
+</html>

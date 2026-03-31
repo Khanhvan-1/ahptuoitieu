@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống tưới tiêu thông minh cho cà phê Đắk Lắk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .hero {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            margin-top: 3rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #2d5a27;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: #555;
+        }
+        .btn-custom {
+            background-color: #2d5a27;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            margin-right: 10px;
+            border: none;
+            transition: 0.3s;
+        }
+        .btn-custom:hover {
+            background-color: #1f3f1a;
+            transform: translateY(-2px);
+        }
+        .btn-outline-custom {
+            background-color: transparent;
+            color: #2d5a27;
+            border: 2px solid #2d5a27;
+            padding: 10px 28px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+        .btn-outline-custom:hover {
+            background-color: #2d5a27;
+            color: white;
+        }
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: 0.3s;
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .feature-icon {
+            font-size: 3rem;
+            color: #2d5a27;
+            margin-bottom: 1rem;
+        }
+        footer {
+            background: #2d5a27;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            border-radius: 20px 20px 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero text-center">
+            <h1>Hệ thống hỗ trợ ra quyết định tưới tiêu cà phê thông minh</h1>
+            <p class="lead mt-4">Ứng dụng dự báo thời tiết và phân tích đa tiêu chí (AHP) để tối ưu lượng nước tưới cho vườn cà phê tại Đắk Lắk</p>
+            <div class="mt-5">
+                <a href="/ahp/" class="btn btn-custom">🚀 Bắt Đầu Phân Tích</a>
+                <a href="/about/" class="btn btn-outline-custom">📚 Tìm Hiểu Thêm</a>
+            </div>
+        </div>
+
+        <!-- Tại sao chọn hệ thống -->
+        <div class="row mt-5">
+            <h2 class="text-center mb-5" style="color: #2d5a27;">Tại Sao Chọn Hệ Thống Của Chúng Tôi?</h2>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🌦️</div>
+                    <h4>Dự báo thời tiết chính xác</h4>
+                    <p>Tích hợp dữ liệu thời tiết realtime từ các trạm khí tượng, giúp đưa ra khuyến nghị tưới phù hợp với điều kiện thực tế.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Phân tích AHP chuyên sâu</h4>
+                    <p>Sử dụng phương pháp Analytic Hierarchy Process để so sánh các tiêu chí (độ ẩm, nhiệt độ, lượng mưa, ...) và lựa chọn phương án tưới tối ưu.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🗺️</div>
+                    <h4>Bản đồ tương tác 40 vườn</h4>
+                    <p>Xem vị trí và trạng thái của 40 vườn cà phê trên bản đồ, dễ dàng theo dõi và quản lý.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mt-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h4>Dashboard trực quan</h4>
+                    <p>Theo dõi xu hướng dữ liệu cảm biến, lịch sử tưới và hiệu quả sử dụng nước qua biểu đồ.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mt-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h4>AI dự đoán nhu cầu nước</h4>
+                    <p>Mô hình machine learning dự báo lượng nước cần tưới dựa trên dữ liệu lịch sử và thời tiết.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mt-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h4>Giao diện thân thiện</h4>
+                    <p>Thiết kế responsive, dễ sử dụng trên cả máy tính và điện thoại.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to action -->
+        <div class="text-center mt-5">
+            <a href="/ahp/" class="btn btn-custom btn-lg">Phân tích ngay</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center">
+        <div class="container">
+            <p>&copy; 2025 Hệ thống tưới tiêu thông minh Đắk Lắk. Đồ án tốt nghiệp.</p>
+            <p>Dữ liệu thời tiết được cập nhật liên tục từ OpenWeatherMap và trạm khí tượng địa phương.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

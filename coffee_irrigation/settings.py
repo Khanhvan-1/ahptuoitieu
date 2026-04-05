@@ -3,6 +3,10 @@ Django settings for coffee_irrigation project.
 """
 
 from pathlib import Path
+import os                       
+from dotenv import load_dotenv 
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -11,6 +15,8 @@ SECRET_KEY = 'django-insecure-l!y5r(61%8p3&^aq(ey&-hten*j6!surw9d(_(wg16qcl)uo^q
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Application definition
 INSTALLED_APPS = [

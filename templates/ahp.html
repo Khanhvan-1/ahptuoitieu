@@ -676,7 +676,48 @@
 
         let gardens = [];
         let allGardens = [];
-
+        const FARMS_DATA = [
+            { name: "Vườn cà phê Ea Tu", lat: 12.839397, lon: 108.083073 },
+            { name: "Vườn cà phê Cư Êbur", lat: 12.831239, lon: 108.013266 },
+            { name: "Vườn cà phê Hòa Thuận", lat: 12.853666, lon: 108.039238 },
+            { name: "Vườn cà phê Ea Kao", lat: 12.843114, lon: 108.048993 },
+            { name: "Vườn cà phê Hòa Phú", lat: 12.8284, lon: 108.036143 },
+            { name: "Vườn cà phê Cư M'gar", lat: 12.852613, lon: 108.015429 },
+            { name: "Vườn cà phê Quảng Phú", lat: 12.838029, lon: 108.030949 },
+            { name: "Vườn cà phê Ea Ktur", lat: 12.843413, lon: 108.068336 },
+            { name: "Vườn cà phê Ea Ning", lat: 12.851642, lon: 108.05514 },
+            { name: "Vườn cà phê Krông Ana", lat: 12.852782, lon: 108.038755 },
+            { name: "Vườn cà phê Krông Pắk", lat: 12.829995, lon: 108.063786 },
+            { name: "Vườn cà phê Ea Kênh", lat: 12.854695, lon: 108.066167 },
+            { name: "Vườn cà phê Ea Yông", lat: 12.847798, lon: 108.070504 },
+            { name: "Vườn cà phê Ea H'leo", lat: 13.284567, lon: 108.051906 },
+            { name: "Vườn cà phê Dliê Yang", lat: 13.375505, lon: 107.959591 },
+            { name: "Vườn cà phê Ea Wy", lat: 13.279939, lon: 108.028133 },
+            { name: "Vườn cà phê Ea Tir", lat: 13.29311, lon: 108.029135 },
+            { name: "Vườn cà phê Ea Hiao", lat: 13.31395, lon: 108.087536 },
+            { name: "Vườn cà phê Ea Sol", lat: 13.355585, lon: 108.007306 },
+            { name: "Vườn cà phê Ea Tul", lat: 13.365224, lon: 107.972343 },
+            { name: "Vườn cà phê Krông Búk", lat: 12.804667, lon: 108.357472 },
+            { name: "Vườn cà phê Pơng Drang", lat: 12.776557, lon: 108.382276 },
+            { name: "Vườn cà phê Ea Drông", lat: 12.81314, lon: 108.384572 },
+            { name: "Vườn cà phê Ea H'đing", lat: 12.815973, lon: 108.404226 },
+            { name: "Vườn cà phê Cư Bao", lat: 12.788318, lon: 108.396326 },
+            { name: "Vườn cà phê Ea Siên", lat: 12.742165, lon: 108.395578 },
+            { name: "Vườn cà phê Ea Blang", lat: 12.81426, lon: 108.398892 },
+            { name: "Vườn cà phê Ea Drăng", lat: 12.735553, lon: 108.392551 },
+            { name: "Vườn cà phê Ea Khal", lat: 12.782596, lon: 108.391748 },
+            { name: "Vườn cà phê M'Drắk", lat: 12.654579, lon: 108.734988 },
+            { name: "Vườn cà phê Krông Jing", lat: 12.643134, lon: 108.715825 },
+            { name: "Vườn cà phê Cư Prao", lat: 12.681652, lon: 108.701336 },
+            { name: "Vườn cà phê Ea Riêng", lat: 12.643495, lon: 108.728073 },
+            { name: "Vườn cà phê Ea M'Doal", lat: 12.682944, lon: 108.725666 },
+            { name: "Vườn cà phê Ea Lai", lat: 12.685494, lon: 108.718157 },
+            { name: "Vườn cà phê Krông Á", lat: 12.642569, lon: 108.698183 },
+            { name: "Vườn cà phê Cư Króa", lat: 12.675957, lon: 108.75069 },
+            { name: "Vườn cà phê Ea Trang", lat: 12.702014, lon: 108.68606 },
+            { name: "Vườn cà phê Krông Nô", lat: 12.645324, lon: 108.715269 },
+            { name: "Vườn cà phê Cư San", lat: 12.63606, lon: 108.758818 }
+        ];
         // Variables
         let map;
         let markers = [];
@@ -687,14 +728,17 @@
         let customScore = null;
         let altResults = Array(6).fill(null);
 
-        // Initialize map
-        function initMap() {
-            map = L.map('map').setView([12.71, 108.05], 10);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+        function ensureMap() {
+            if (!map) {
+                map = L.map('map').setView([12.71, 108.05], 10);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© CartoDB & OpenStreetMap',
+                    subdomains: 'abcd'
+                }).addTo(map);
+            } else {
+                map.invalidateSize();
+            }
         }
-        initMap();
 
         // AHP Calculation
         function calculateAHP(matrix) {
@@ -1059,23 +1103,19 @@
                 customScore = gardenScores[0] || 0;
 
                 document.getElementById("gardenListCard").style.display = "block";
-                document.getElementById("mapCard").style.display = "block";
+                
                 document.getElementById("gardenDetail").style.display = "block";
                 document.getElementById("finalResultCard").style.display = "block";
 
                 // hiện AI box sau khi đánh giá
                 document.getElementById("aiBox").style.display = "block";
-
+                document.getElementById("mapCard").style.display = "block";
+                ensureMap();    
+                updateMapMarkers();
                 updateCompareOptions();
                 updateNearestGardens();
-                updateMapMarkers();
                 updateFinalResult();
                 renderAIFromTopGardens();
-
-                // fix leaflet map bị co góc
-                setTimeout(() => {
-                    map.invalidateSize();
-                }, 300);
 
                 if (gardens.length > 0) {
                     setTimeout(() => selectGarden(0), 200);
@@ -1326,37 +1366,77 @@
 
         async function loadGardenOptions() {
             try {
+                // Thử lấy dữ liệu chỉ số từ API (nếu có)
                 const res = await fetch("/api/gardens-realtime/");
-                if (!res.ok) throw new Error("HTTP " + res.status);
+                let apiData = [];
+                if (res.ok) {
+                    apiData = await res.json();
+                    console.log("✅ Đã lấy được chỉ số từ API");
+                } else {
+                    console.warn("⚠️ API không khả dụng, dùng chỉ số mặc định");
+                }
 
-                const farms = await res.json();
-
-                // lưu toàn bộ dữ liệu thật
-                allGardens = farms.map(farm => ({
-                    id: farm.id,
-                    name: farm.name,
-                    lat: parseFloat(farm.lat),
-                    lng: parseFloat(farm.lng),
-                    location: `${parseFloat(farm.lat).toFixed(6)}, ${parseFloat(farm.lng).toFixed(6)}`,
-                    ai_status: farm.status || "",
-                    ai_score: parseFloat(farm.score || 0),
-                    scores: {
-                        c1: parseFloat(farm.soil),
-                        c2: parseFloat(farm.rain),
-                        c3: parseFloat(farm.eto),
-                        c4: parseFloat(farm.temp),
-                        c5: parseFloat(farm.humidity),
-                        c6: parseFloat(farm.radiation)
+                // Tạo allGardens từ FARMS_DATA (tọa độ chuẩn), kết hợp chỉ số từ API nếu có
+                allGardens = FARMS_DATA.map((farm, idx) => {
+                    // Tìm bản ghi API tương ứng theo tên (so khớp một phần)
+                    let apiRecord = apiData.find(api => farm.name.toLowerCase().includes(api.name?.toLowerCase()) || api.name?.toLowerCase().includes(farm.name.toLowerCase()));
+                    
+                    // Nếu có API record thì lấy scores từ API, nếu không thì tạo scores mặc định (dựa trên vùng)
+                    let scores;
+                    if (apiRecord) {
+                        scores = {
+                            c1: parseFloat(apiRecord.soil) || 0.6,
+                            c2: parseFloat(apiRecord.rain) || 120,
+                            c3: parseFloat(apiRecord.eto) || 4.5,
+                            c4: parseFloat(apiRecord.temp) || 26,
+                            c5: parseFloat(apiRecord.humidity) || 70,
+                            c6: parseFloat(apiRecord.radiation) || 800
+                        };
+                    } else {
+                        // Tạo scores mặc định với một chút khác biệt ngẫu nhiên
+                        scores = {
+                            c1: 0.5 + Math.random() * 0.4,
+                            c2: 80 + Math.random() * 70,
+                            c3: 4 + Math.random() * 1.5,
+                            c4: 25 + Math.random() * 3,
+                            c5: 65 + Math.random() * 15,
+                            c6: 700 + Math.random() * 200
+                        };
                     }
-                }));
+                    
+                    return {
+                        id: idx + 1,
+                        name: farm.name,
+                        lat: farm.lat,
+                        lng: farm.lon,
+                        location: farm.name,
+                        scores: scores
+                    };
+                });
 
-                console.log("✅ Gardens realtime loaded:", allGardens);
-
-                // chỉ cập nhật select compare
-                updateCompareOptions();
-
+                console.log("✅ Đã tải 40 vườn với tọa độ chuẩn:", allGardens);
+                updateCompareOptions(); // cập nhật dropdown so sánh
+                
+                // Nếu đã có gardens (top 10) thì cập nhật lại bảng và bản đồ
+                if (gardens && gardens.length > 0) {
+                    // Đánh giá lại với dữ liệu mới (giữ nguyên input user)
+                    evaluateCustomGarden();
+                }
+                
             } catch (err) {
                 console.error("❌ Lỗi loadGardenOptions:", err);
+                // Fallback: dùng FARMS_DATA với scores mặc định
+                allGardens = FARMS_DATA.map((farm, idx) => ({
+                    id: idx + 1,
+                    name: farm.name,
+                    lat: farm.lat,
+                    lng: farm.lon,
+                    location: farm.name,
+                    scores: {
+                        c1: 0.6, c2: 120, c3: 4.5, c4: 26, c5: 70, c6: 800
+                    }
+                }));
+                updateCompareOptions();
             }
         }
 

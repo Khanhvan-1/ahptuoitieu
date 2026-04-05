@@ -15,6 +15,11 @@ from datetime import datetime
 from pathlib import Path
 import json
 import re
+from django.conf import settings
+from django.core.cache import cache
+from google import genai
+
+gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 # =====================
 # HOME
 # =====================
@@ -612,6 +617,30 @@ def map_status(request):
 def sensor_page(request):
     return render(request, "sensor.html")
 
+def get_current_weather():
+    """Lấy dữ liệu thời tiết hiện tại, trả về dict hoặc None nếu lỗi"""
+    try:
+        cache_session = requests_cache.CachedSession('.cache', expire_after=15)
+        retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
+        openmeteo = openmeteo_requests.Client(session=retry_session)
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": 12.3977,
+            "longitude": 108.2181,
+            "current": ["temperature_2m", "relative_humidity_2m", "rain", "wind_speed_10m", "shortwave_radiation"]
+        }
+        responses = openmeteo.weather_api(url, params=params)
+        current = responses[0].Current()
+        return {
+            "temperature": round(current.Variables(0).Value(), 2),
+            "humidity": round(current.Variables(1).Value(), 2),
+            "rain": round(current.Variables(2).Value(), 2),
+            "wind": round(current.Variables(3).Value(), 2),
+            "radiation": round(current.Variables(4).Value(), 2),
+        }
+    except Exception as e:
+        print("Lỗi lấy thời tiết:", e)
+        return None
 
 # =====================
 # CHATBOT AI
@@ -623,218 +652,266 @@ def chatbot_response(request):
 
     try:
         data = json.loads(request.body)
-        raw_message = data.get("message", "").strip()
-        message = normalize_text(raw_message)
-        session_key = request.session.session_key or "guest"
+        user_message = data.get("message", "").strip()
+        if not user_message:
+            return JsonResponse({"reply": "Bạn chưa nhập tin nhắn."})
 
-        if session_key not in CHAT_MEMORY:
-            CHAT_MEMORY[session_key] = {"last_farm": None}
+        # --- Kiểm tra và sửa session ---
+        if 'chat_history' not in request.session or not isinstance(request.session['chat_history'], list):
+            request.session['chat_history'] = []
+        chat_history = request.session['chat_history']
 
-        farms = get_latest_garden_data()
-        memory = CHAT_MEMORY[session_key]
+        # --- Lấy dữ liệu thực tế ---
+        farms = get_detailed_farm_data()
+        if not isinstance(farms, list):
+            farms = []
 
-        reply = "🤖 Tôi chưa hiểu rõ, bạn thử hỏi cụ thể hơn nhé."
+        weather = get_current_weather()
+        if not isinstance(weather, dict):
+            weather = {"temperature": 28, "humidity": 65, "rain": 0, "wind": 3, "radiation": 220}
 
-        # =====================
-        # 1. TÌM VƯỜN THEO TÊN / SỐ
-        # =====================
-        matched_farm = None
+        forecast = get_weather_forecast()
+        if not isinstance(forecast, list):
+            forecast = []
 
-        for farm in farms:
-            if farm["name"].lower() in message:
-                matched_farm = farm
-                memory["last_farm"] = farm["name"]
-                break
+        # --- Xây dựng farm_summary an toàn ---
+        farm_summary_lines = []
+        for f in farms[:10]:
+            if not isinstance(f, dict):
+                continue
+            name = f.get('name', '?')
+            soil = f.get('soil', 0)
+            soil_trend = f.get('soil_trend', [])
+            if not isinstance(soil_trend, list):
+                soil_trend = []
+            trend_str = ', '.join(str(v) for v in soil_trend[:3]) if soil_trend else 'chưa có'
+            temp = f.get('temp', '?')
+            rain = f.get('rain', '?')
+            eto = f.get('eto', '?')
+            status = f.get('status', '?')
+            farm_summary_lines.append(
+                f"- Vườn {name}: độ ẩm {soil:.2f} (xu hướng {trend_str}), "
+                f"nhiệt độ {temp}°C, mưa {rain} mm, ETo {eto}, AI: {status}"
+            )
+        farm_summary = "\n".join(farm_summary_lines) if farm_summary_lines else "Chưa có dữ liệu vườn."
 
-        # hỏi kiểu "vườn 5"
-        match_number = re.search(r"vườn\s*(\d+)|vuon\s*(\d+)", message)
-        if not matched_farm and match_number:
-            farm_id = int(match_number.group(1) or match_number.group(2))
-            matched_farm = next((f for f in farms if f["id"] == farm_id), None)
-            if matched_farm:
-                memory["last_farm"] = matched_farm["name"]
+        # --- Dự báo thời tiết ---
+        forecast_lines = []
+        for f in forecast[:3]:
+            if not isinstance(f, dict):
+                continue
+            date = f.get('date', '?')
+            temp_max = f.get('temp_max', '?')
+            temp_min = f.get('temp_min', '?')
+            rain = f.get('rain', '?')
+            forecast_lines.append(f"- Ngày {date}: max {temp_max}°C / min {temp_min}°C, mưa {rain} mm")
+        forecast_summary = "\n".join(forecast_lines) if forecast_lines else "Không có dữ liệu dự báo."
 
-        # nếu user hỏi "tại sao" thì nhớ lại vườn trước
-        if not matched_farm and any(k in message for k in ["tại sao", "vì sao", "có nên tưới", "nguy hiểm", "ổn không"]):
-            last_farm_name = memory.get("last_farm")
-            if last_farm_name:
-                matched_farm = next((f for f in farms if f["name"] == last_farm_name), None)
+        # --- Context cho Gemini ---
+        system_context = f"""Bạn là trợ lý AI chuyên về tưới tiêu thông minh cho vườn cà phê.
+        Hãy trả lời câu hỏi bằng tiếng Việt, ngắn gọn, dễ hiểu, dùng biểu tượng cảm xúc nếu phù hợp.
 
-        # =====================
-        # 2. TRẢ LỜI THEO TỪNG VƯỜN
-        # =====================
-        if matched_farm:
-            reasons = []
+        === DỮ LIỆU THỜI TIẾT HIỆN TẠI ===
+        Nhiệt độ: {weather.get('temperature', '?')}°C
+        Độ ẩm KK: {weather.get('humidity', '?')}%
+        Lượng mưa: {weather.get('rain', '?')} mm
+        Gió: {weather.get('wind', '?')} km/h
+        Bức xạ: {weather.get('radiation', '?')} W/m²
 
-            if matched_farm["soil"] < 0.2:
-                reasons.append("độ ẩm đất thấp")
-            if matched_farm["rain"] < 1:
-                reasons.append("lượng mưa thấp")
-            if matched_farm["temp"] > 30:
-                reasons.append("nhiệt độ cao")
-            if matched_farm["radiation"] > 900:
-                reasons.append("bức xạ mạnh")
-            if matched_farm["eto"] > 3:
-                reasons.append("ETo cao")
+        === DỰ BÁO 3 NGÀY TỚI ===
+        {forecast_summary}
 
-            if any(k in message for k in ["tại sao", "vì sao", "giải thích"]):
-                if reasons:
-                    reply = (
-                        f"🤖 AI giải thích cho {matched_farm['name']}:\n"
-                        f"- " + "\n- ".join(reasons) + "\n"
-                        f"=> Hệ thống đề xuất: {matched_farm['status']}."
-                    )
-                else:
-                    reply = f"🤖 {matched_farm['name']} đang ở trạng thái khá ổn định. AI đề xuất: {matched_farm['status']}."
-            else:
-                reply = (
-                    f"📍 {matched_farm['name']}\n"
-                    f"🌱 Độ ẩm đất: {matched_farm['soil']}\n"
-                    f"🌡 Nhiệt độ: {matched_farm['temp']}°C\n"
-                    f"🌧 Mưa: {matched_farm['rain']} mm\n"
-                    f"💧 ETo: {matched_farm['eto']}\n"
-                    f"🤖 AI: {matched_farm['status']} (độ tin cậy {matched_farm['score']}/10)"
-                )
+        === DỮ LIỆU CÁC VƯỜN ===
+        {farm_summary}
 
-            return JsonResponse({
-                "reply": reply,
-                "card": matched_farm
-            })
+        Câu hỏi của người dùng: "{user_message}"
+        """
 
-        # =====================
-        # 3. TOP KHÔ NHẤT / TƯỚI GẤP
-        # =====================
-        if has_any(message, [
-            "khô nhất",
-            "vườn nào khô",
-            "vuon nao kho",
-            "top",
-            "top 1",
-            "top 5",
-            "cần tưới",
-            "can tuoi",
-            "tưới gấp",
-            "tuoi gap",
-            "ưu tiên",
-            "uu tien",
-            "nên tưới",
-            "nen tuoi"
-        ]):
-            ranked = sorted(farms, key=lambda x: x["soil"])
-            top5 = ranked[:5]
-            names = ", ".join([f["name"] for f in top5])
+        # --- Tạo conversation ---
+        prompt_parts = [system_context]
+        for msg in chat_history[-5:]:
+            if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                prefix = "Người dùng: " if msg['role'] == 'user' else "Trợ lý: "
+                prompt_parts.append(prefix + msg['content'])
+        prompt_parts.append("Người dùng: " + user_message)
+        full_prompt = "\n\n".join(prompt_parts)
 
-            if "top 1" in message or "khô nhất" in message:
-                top1 = top5[0]
-                reply = f"🌱 Vườn khô nhất hiện tại là {top1['name']} (độ ẩm đất {top1['soil']})"
-                return JsonResponse({"reply": reply, "card": top1})
+        # --- Gọi Gemini với prompt dạng text ---
+        try:
+            response = gemini_client.models.generate_content(
+                model="models/gemini-2.0-flash",
+                contents=full_prompt   # truyền string, không phải list dict
+            )
+            bot_reply = response.text.strip()
+        except Exception as e:
+            print("Gemini lỗi, fallback:", e)
+            bot_reply = simple_rule_based_fallback(user_message, farms, request)
 
-            reply = f"🌱 Top 5 vườn cần ưu tiên tưới hiện tại là: {names}"
-            return JsonResponse({"reply": reply, "top5": top5})
+        # --- Lưu lịch sử (đảm bảo session là list) ---
+        if not isinstance(request.session.get('chat_history'), list):
+            request.session['chat_history'] = []
+        request.session['chat_history'].append({"role": "user", "content": user_message})
+        request.session['chat_history'].append({"role": "model", "content": bot_reply})
+        if len(request.session['chat_history']) > 20:
+            request.session['chat_history'] = request.session['chat_history'][-20:]
+        request.session.modified = True
 
-        # =====================
-        # 4. ÚNG / QUÁ ẨM
-        # =====================
-        if has_any(message, ["úng", "quá ẩm", "ngập", "ẩm quá", "ướt quá", "ua nuoc"]):
-            wet_farms = [f["name"] for f in farms if f["soil"] > 0.48]
-            if wet_farms:
-                reply = "⚠️ Các vườn có nguy cơ úng: " + ", ".join(wet_farms)
-            else:
-                reply = "✅ Hiện chưa có vườn nào có nguy cơ úng cao."
-            return JsonResponse({"reply": reply})
+        return JsonResponse({"reply": bot_reply})
 
-        # =====================
-        # 5. BAO NHIÊU VƯỜN TƯỚI NHIỀU
-        # =====================
-        if has_any(message, ["bao nhiêu", "có mấy", "thống kê", "bao nhieu"]) and has_any(message, ["tưới nhiều", "tuoi nhieu", "cần tưới", "can tuoi"]):
-            count = sum(1 for f in farms if "nhiều" in f["status"].lower())
-            reply = f"💧 Hiện có {count} vườn đang được AI đề xuất tưới nhiều."
-            return JsonResponse({"reply": reply})
-
-        # =====================
-        # 6. AI DỰA VÀO GÌ
-        # =====================
-        if has_any(message, [
-            "ai",
-            "dựa vào gì",
-            "dua vao gi",
-            "ai dựa vào gì",
-            "vì sao ai tưới",
-            "sao ai biết",
-            "ai hoạt động sao",
-            "giai thich ai"
-        ]):
-            reply = "🤖 AI sử dụng độ ẩm đất, lượng mưa, ETo, nhiệt độ, độ ẩm không khí và bức xạ để đề xuất mức tưới phù hợp."
-            return JsonResponse({"reply": reply})
-
-        # =====================
-        # 7. TƯ VẤN NÔNG NGHIỆP
-        # =====================
-        if "khi nào tưới" in message:
-            reply = "🌤 Thời điểm tưới tốt nhất là sáng sớm hoặc chiều mát để giảm thất thoát nước."
-            return JsonResponse({"reply": reply})
-
-        if "độ ẩm đất bao nhiêu là tốt" in message:
-            reply = "🌱 Với cà phê, độ ẩm đất ở mức trung bình ổn định thường phù hợp hơn là quá khô hoặc quá ướt."
-            return JsonResponse({"reply": reply})
-
-        # =====================
-        # 8. CÂU HỎI TỰ NHIÊN / GẦN ĐÚNG
-        # =====================
-        if has_any(message, ["khô", "thiếu nước", "han", "khát nước"]):
-            ranked = sorted(farms, key=lambda x: x["soil"])
-            top1 = ranked[0]
-            reply = f"🌱 Vườn có nguy cơ khô nhất hiện tại là {top1['name']} với độ ẩm đất {top1['soil']}."
-            return JsonResponse({"reply": reply, "card": top1})
-
-        if has_any(message, ["ổn không", "on khong", "có ổn không", "co on khong"]):
-            dry_count = sum(1 for f in farms if f["soil"] < 0.2)
-            wet_count = sum(1 for f in farms if f["soil"] > 0.48)
-            reply = f"📋 Hiện hệ thống ghi nhận {dry_count} vườn có nguy cơ khô và {wet_count} vườn có nguy cơ úng."
-            return JsonResponse({"reply": reply})
-
-        if has_any(message, ["nên tưới lúc nào", "khi nào tưới", "luc nao tuoi", "thoi diem tuoi"]):
-            reply = "🌤 Thời điểm tưới tốt nhất là sáng sớm hoặc chiều mát để giảm thất thoát nước."
-            return JsonResponse({"reply": reply})
-
-        if has_any(message, ["độ ẩm đất bao nhiêu là tốt", "do am dat tot", "độ ẩm tốt", "do am tot"]):
-            reply = "🌱 Với cà phê, độ ẩm đất ở mức trung bình ổn định sẽ tốt hơn là quá khô hoặc quá ướt."
-            return JsonResponse({"reply": reply})
-        
-        # =====================
-        # 9. SO SÁNH 2 VƯỜN
-        # =====================
-        compare_match = re.findall(r"vườn\s*(\d+)|vuon\s*(\d+)", message)
-
-        if ("so sánh" in message or "so sanh" in message) and len(compare_match) >= 2:
-            ids = []
-            for pair in compare_match:
-                ids.append(int(pair[0] or pair[1]))
-
-            selected = [f for f in farms if f["id"] in ids[:2]]
-
-            if len(selected) == 2:
-                f1, f2 = selected[0], selected[1]
-
-                risk1 = (1 - f1["soil"]) + f1["eto"] + (f1["temp"] / 100)
-                risk2 = (1 - f2["soil"]) + f2["eto"] + (f2["temp"] / 100)
-
-                priority = f1 if risk1 > risk2 else f2
-
-                reply = (
-                    f"📊 So sánh {f1['name']} và {f2['name']}:\n"
-                    f"- {f1['name']}: đất {f1['soil']}, ET₀ {f1['eto']}, nhiệt {f1['temp']}°C\n"
-                    f"- {f2['name']}: đất {f2['soil']}, ET₀ {f2['eto']}, nhiệt {f2['temp']}°C\n\n"
-                    f"🤖 AI đánh giá: {priority['name']} cần ưu tiên hơn."
-                )
-
-                return JsonResponse({"reply": reply})
-        return JsonResponse({"reply": reply})
     except Exception as e:
-        print("❌ chatbot_response lỗi:", e)
-        return JsonResponse({"reply": "⚠️ Chatbot đang gặp lỗi xử lý dữ liệu."})
-        
+        print("Lỗi chatbot_response:", e)
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"reply": f"⚠️ Lỗi hệ thống: {str(e)}"})
+    
+def simple_rule_based_fallback(message, farms, request=None):
+    if not isinstance(farms, list):
+        farms = []
+    msg_lower = message.lower()
 
+    # ==================== HỎI DANH SÁCH VƯỜN TỪ CÂU TRƯỚC ====================
+    if any(k in msg_lower for k in ["tên những vườn", "những vườn nào", "tên các vườn", "danh sách vườn", "vườn đó là gì", "tên các vườn đó"]):
+        if request:
+            last_list = request.session.get('last_farm_list', [])
+            if last_list:
+                # Giới hạn hiển thị tối đa 20 tên để tránh quá dài
+                if len(last_list) <= 20:
+                    return f"📋 Danh sách {len(last_list)} vườn cần tưới nhiều:\n" + ", ".join(last_list)
+                else:
+                    # Hiển thị 20 tên đầu và thông báo còn lại
+                    display = ", ".join(last_list[:20])
+                    return f"📋 Danh sách {len(last_list)} vườn cần tưới nhiều (hiển thị 20):\n{display}\n... và {len(last_list)-20} vườn khác."
+            else:
+                return "Chưa có dữ liệu về danh sách vườn. Hãy hỏi 'Bao nhiêu vườn cần tưới nhiều?' trước."
+        return "Chưa có dữ liệu."
+
+    # ==================== DỰ BÁO THỜI TIẾT ====================
+    if any(k in msg_lower for k in ["ngày mai", "dự báo", "mai có mưa", "mai mưa"]):
+        forecast = get_weather_forecast()
+        if forecast and len(forecast) >= 2:  # forecast[0] hôm nay, [1] ngày mai
+            tomorrow = forecast[1]
+            rain = tomorrow.get('rain', 0)
+            temp_max = tomorrow.get('temp_max', '?')
+            if rain > 0:
+                return f"☁️ Dự báo ngày mai: có mưa, lượng mưa {rain} mm, nhiệt độ cao nhất {temp_max}°C."
+            else:
+                return f"☀️ Dự báo ngày mai: không mưa, nhiệt độ cao nhất {temp_max}°C."
+        return "Hiện chưa có dữ liệu dự báo thời tiết."
+
+    # ==================== CẢNH BÁO HẠN HÁN ====================
+    if "hạn hán" in msg_lower or "cảnh báo hạn" in msg_lower:
+        if farms:
+            dry_farms = [f for f in farms if f.get("soil", 1) < 0.2]
+            if dry_farms:
+                names = ", ".join([f.get("name", "?") for f in dry_farms[:3]])
+                return f"⚠️ Cảnh báo: {len(dry_farms)} vườn có độ ẩm thấp (dưới 0.2), cần tưới: {names}."
+            else:
+                return "✅ Hiện chưa có dấu hiệu hạn hán, độ ẩm đất ổn định."
+        return "Chưa có dữ liệu vườn để đánh giá."
+
+    # ==================== THỜI TIẾT HIỆN TẠI ====================
+    if any(k in msg_lower for k in ["thời tiết", "nhiệt độ", "độ ẩm", "mưa", "gió", "bức xạ"]):
+        weather = get_current_weather()
+        if weather:
+            return (f"🌤 Thời tiết hiện tại: {weather['temperature']}°C, độ ẩm {weather['humidity']}%, "
+                    f"mưa {weather['rain']} mm, gió {weather['wind']} km/h, bức xạ {weather['radiation']} W/m².")
+        return "Không lấy được dữ liệu thời tiết."
+
+    # ==================== KHUYẾN NGHỊ TƯỚI ====================
+    if any(k in msg_lower for k in ["có nên tưới", "tưới nước", "nên tưới"]):
+        if farms:
+            avg_soil = sum(f.get("soil", 0) for f in farms) / len(farms)
+            if avg_soil < 0.25:
+                return "🌱 Độ ẩm đất trung bình thấp, bạn nên tưới nước hôm nay."
+            elif avg_soil > 0.45:
+                return "💧 Độ ẩm đất đang cao, không cần tưới hôm nay."
+            else:
+                return "🌿 Độ ẩm đất ở mức ổn định, có thể tưới nhẹ nếu cần."
+        return "Chưa có dữ liệu độ ẩm đất."
+
+    # ==================== SỐ LƯỢNG VƯỜN TƯỚI NHIỀU ====================
+    if any(k in msg_lower for k in ["bao nhiêu vườn", "có mấy vườn", "số lượng vườn"]) and ("tưới nhiều" in msg_lower or "cần tưới" in msg_lower):
+        high_farms = [f for f in farms if "nhiều" in f.get("status", "").lower()]
+        count = len(high_farms)
+        farm_names = [f.get("name", "?") for f in high_farms]
+        # Lưu danh sách vào session
+        if request:
+            request.session['last_farm_list'] = farm_names
+            request.session.modified = True
+        if count == 0:
+            return "💧 Hiện không có vườn nào cần tưới nhiều."
+        return f"⚠️ Hiện có {count} vườn cần tưới nhiều."
+
+    # ==================== CÁC CÂU HỎI KHÁC ====================
+    if "khô nhất" in msg_lower:
+        if farms:
+            driest = min(farms, key=lambda x: x.get("soil", 1))
+            return f"🌱 Vườn khô nhất: {driest.get('name', '?')} (độ ẩm {driest.get('soil', 0):.2f})"
+        return "Chưa có dữ liệu vườn."
+
+    if "úng" in msg_lower or "quá ẩm" in msg_lower:
+        wet = [f.get("name", "?") for f in farms if f.get("soil", 0) > 0.48]
+        if wet:
+            return "⚠️ Vườn có nguy cơ úng: " + ", ".join(wet)
+        return "✅ Không có vườn nào bị úng."
+
+    return "🤖 Tôi chưa hiểu câu hỏi. Bạn có thể hỏi về thời tiết, dự báo, tình trạng vườn hoặc khuyến nghị tưới."
+
+def get_detailed_farm_data():
+    farms = get_latest_garden_data()
+    result = []
+    for f in farms:
+        garden = Garden.objects.filter(id=f["id"]).first()
+        if garden:
+            history = GardenRealtime.objects.filter(garden=garden).order_by('-time')[:6]
+            soil_trend = [round(h.soil_moisture, 3) for h in history] if history else []
+        else:
+            soil_trend = []
+        result.append({
+            "id": f["id"],
+            "name": f["name"],
+            "soil": f["soil"],
+            "soil_trend": soil_trend,   # luôn là list
+            "temp": f["temp"],
+            "rain": f["rain"],
+            "eto": f["eto"],
+            "status": f["status"]
+        })
+    return result
+
+def get_weather_forecast():
+    try:
+        cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
+        retry_session = retry(cache_session, retries=3)
+        openmeteo = openmeteo_requests.Client(session=retry_session)
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": 12.3977,
+            "longitude": 108.2181,
+            "daily": ["temperature_2m_max", "temperature_2m_min", "rain_sum"],
+            "timezone": "Asia/Bangkok"
+        }
+        responses = openmeteo.weather_api(url, params=params)
+        daily = responses[0].Daily()
+        times = daily.Time()
+        if not hasattr(times, '__len__'):
+            return []
+        temps_max = daily.Variables(0).ValuesAsNumpy()
+        temps_min = daily.Variables(1).ValuesAsNumpy()
+        rains = daily.Variables(2).ValuesAsNumpy()
+        
+        forecast = []
+        for i in range(min(3, len(times))):
+            forecast.append({
+                "date": times[i].strftime("%d/%m"),
+                "temp_max": round(temps_max[i], 1),
+                "temp_min": round(temps_min[i], 1),
+                "rain": round(rains[i], 1)
+            })
+        return forecast
+    except Exception as e:
+        print("Lỗi forecast:", e)
+        return []
 # =====================
 # OTHER PAGES
 # =====================

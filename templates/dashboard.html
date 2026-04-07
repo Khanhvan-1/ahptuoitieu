@@ -441,6 +441,22 @@
             font-weight: 500;
         }
 
+        canvas {
+            max-width: 100% !important;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+
+        #tempChart,
+        #soilChart {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
         .form-control:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
@@ -880,34 +896,16 @@
         <div class="spinner"></div>
     </div>
 
-    <div class="dashboard-container">
-
-        <!-- Header -->
-        <div class="dashboard-header d-flex justify-content-between align-items-center flex-wrap">
-            <div>
-                <h1 class="header-title">
-                    <i class="fas fa-leaf me-2" style="color: var(--primary);"></i>
-                    Smart Coffee Farm Dashboard
-                </h1>
-            </div>
-            
-            <div class="nav-buttons">
-                <a href="/about/" class="nav-btn">
-                    <i class="fas fa-info-circle me-2"></i>Giới thiệu
-                </a>
-                <a href="/ahp/" class="nav-btn">
-                    <i class="fas fa-chart-pie me-2"></i>Phân tích AHP
-                </a>
-                <a href="/map/" class="nav-btn">
-                    <i class="fas fa-map-marked-alt me-2"></i>Bản đồ vườn
-                </a>
-            </div>
-            
-            <div class="live-time">
-                <i class="fas fa-clock"></i>
-                <span id="time"></span>
+    <div class="row justify-content-center mb-4">
+        <div class="col-auto">
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <a href="/about/" class="nav-btn"><i class="fas fa-info-circle me-2"></i>Giới thiệu</a>
+                <a href="/ahp/" class="nav-btn"><i class="fas fa-chart-pie me-2"></i>Phân tích AHP</a>
+                <a href="/map/" class="nav-btn"><i class="fas fa-map-marked-alt me-2"></i>Bản đồ vườn</a>
+                <a href="/simulation/" class="nav-btn"><i class="fas fa-seedling me-2"></i>Mô phỏng</a>
             </div>
         </div>
+    </div>
 
         <!-- Alert Box -->
         <div class="alert-box" id="alertBox">
@@ -1165,7 +1163,9 @@
                         <i class="fas fa-chart-line"></i>
                         Biểu đồ nhiệt độ theo thời gian
                     </h4>
-                    <canvas id="tempChart" height="200"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="tempChart"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6">
@@ -1174,7 +1174,9 @@
                         <i class="fas fa-chart-line"></i>
                         Biểu đồ độ ẩm đất
                     </h4>
-                    <canvas id="soilChart" height="200"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="soilChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1275,617 +1277,662 @@
     <button id="chat-fab" onclick="openChat()">🤖</button>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
-        // Initialize AOS
-        AOS.init({
-            duration: 1000,
-            once: true
-        });
+        document.addEventListener("DOMContentLoaded", function () {
+            AOS.init({
+                duration: 1000,
+                once: true
+            });
 
-        // Clock Update
-        function updateClock() {
-            const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('time').innerHTML = `${hours}:${minutes}:${seconds}`;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+            // =========================
+            // BIẾN TOÀN CỤC
+            // =========================
+            let chatCollapsed = false;
+            let currentSessionId = null;
+            let sessions = [];
 
-        // ===== DỮ LIỆU TỪ DJANGO (AN TOÀN) =====
-        const soilMoisture = parseFloat("{{ soil_moisture|default:0 }}");
-        const tempLabels = JSON.parse('{{ labels|escapejs }}'.replace(/'/g, '"'));
-        const tempValues = JSON.parse('{{ values|escapejs }}'.replace(/'/g, '"'));
-        const soilLabels = JSON.parse('{{ soil_labels|escapejs }}'.replace(/'/g, '"'));
-        const soilValues = JSON.parse('{{ soil_values|escapejs }}'.replace(/'/g, '"'));
+            // =========================
+            // DỮ LIỆU TỪ DJANGO
+            // =========================
+            const soilMoisture = parseFloat("{{ soil_moisture|default:0 }}");
 
-        // ===== ALERT SYSTEM =====
-        let alertMessage = '';
+            const tempLabels = {{ labels|safe }};
+            const tempValues = {{ values|safe }};
+            const soilLabels = {{ soil_labels|safe }};
+            const soilValues = {{ soil_values|safe }};
 
-        if (soilMoisture < 0.2) {
-            alertMessage = '⚠ Đất quá khô — Cần tưới nhiều ngay lập tức!';
-        } else if (soilMoisture > 0.5) {
-            alertMessage = '⚠ Đất quá ẩm — Không cần tưới, tránh úng rễ!';
-        } else {
-            alertMessage = '✅ Điều kiện đất ổn định — Theo dõi thường xuyên';
-        }
-
-        document.getElementById('alertMessage').innerHTML = alertMessage;
-        // ===== AI CHỦ ĐỘNG =====
-        setTimeout(() => {
-            const messages = document.getElementById("chatbox-messages");
-
-            if (messages) {
-                messages.innerHTML += `<div class="bot-message">⚠️ AI phát hiện đất có thể khô, bạn có muốn xem vườn cần tưới không?</div>`;
+            // =========================
+            // ALERT BOX
+            // =========================
+            let alertMessage = '';
+            if (soilMoisture < 0.2) {
+                alertMessage = '⚠ Đất quá khô — Cần tưới nhiều ngay lập tức!';
+            } else if (soilMoisture > 0.5) {
+                alertMessage = '⚠ Đất quá ẩm — Không cần tưới, tránh úng rễ!';
+            } else {
+                alertMessage = '✅ Điều kiện đất ổn định — Theo dõi thường xuyên';
             }
-        }, 3000);
 
-        // ===== TEMPERATURE CHART =====
-        new Chart(document.getElementById('tempChart'), {
-            type: 'line',
-            data: {
-                labels: tempLabels,
-                datasets: [{
-                    label: 'Nhiệt độ (°C)',
-                    data: tempValues,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#ef4444',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { mode: 'index', intersect: false }
-                },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+            const alertSpan = document.getElementById('alertMessage');
+            if (alertSpan) alertSpan.innerHTML = alertMessage;
+
+            // =========================
+            // AI GỢI Ý SAU 3S
+            // =========================
+            setTimeout(() => {
+                const messages = document.getElementById("chatbox-messages");
+                if (messages) {
+                    messages.innerHTML += `<div class="bot-message">⚠️ AI phát hiện đất có thể khô, bạn có muốn xem vườn cần tưới không?</div>`;
                 }
-            }
-        });
+            }, 3000);
 
-        // ===== SOIL MOISTURE CHART =====
-        new Chart(document.getElementById('soilChart'), {
-            type: 'line',
-            data: {
-                labels: soilLabels,
-                datasets: [{
-                    label: 'Độ ẩm đất',
-                    data: soilValues,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { beginAtZero: true, max: 1, grid: { color: 'rgba(0,0,0,0.05)' } }
-                }
+            // =========================
+            // CHART NHIỆT ĐỘ
+            // =========================
+            const tempCanvas = document.getElementById('tempChart');
+            if (tempCanvas) {
+                new Chart(tempCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: tempLabels,
+                        datasets: [{
+                            label: 'Nhiệt độ (°C)',
+                            data: tempValues,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#ef4444',
+                            pointBorderColor: '#ef4444',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: true,
+                            mode: 'nearest'
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label;
+                                    },
+                                    label: function(context) {
+                                        return `Nhiệt độ (°C): ${context.raw}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#555',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0,0,0,0.08)'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                min: 20,
+                                max: 40,
+                                ticks: {
+                                    color: '#555',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0,0,0,0.08)'
+                                }
+                            }
+                        }
+                    }
+                });
             }
-        });
 
-        // ===== FARM STATISTICS CHART =====
-        new Chart(document.getElementById('farmChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Tưới nhiều', 'Tưới vừa', 'Tưới ít', 'Không tưới'],
-                datasets: [{
-                    data: [8, 15, 10, 7],
-                    backgroundColor: [
-                        '#ef4444',
-                        '#f59e0b',
-                        '#fbbf24',
-                        '#10b981'
-                    ],
-                    borderWidth: 0,
-                    hoverOffset: 15
-                }]
-            },
-            options: {
-                responsive: true,
-                cutout: '60%',
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { font: { size: 14, weight: 'bold' } }
+            // =========================
+            // CHART ĐỘ ẨM ĐẤT
+            // =========================
+           const soilCanvas = document.getElementById('soilChart');
+            if (soilCanvas) {
+                const soilMin = Math.min(...soilValues);
+                const soilMax = Math.max(...soilValues);
+
+                new Chart(soilCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: soilLabels,
+                        datasets: [{
+                            label: 'Độ ẩm đất',
+                            data: soilValues,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#10b981',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: true,
+                            mode: 'nearest'
+                        },      
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Độ ẩm đất: ${Number(context.raw).toFixed(3)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#555',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0,0,0,0.08)'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                min: Math.max(0, soilMin - 0.01),
+                                max: soilMax + 0.01,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toFixed(3);
+                                    },
+                                    color: '#555',
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0,0,0,0.08)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // =========================
+            // CHART TRẠNG THÁI TƯỚI
+            // =========================
+            const farmCanvas = document.getElementById('farmChart');
+            if (farmCanvas) {
+                window.farmChart = new Chart(farmCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Tưới nhiều', 'Tưới vừa', 'Tưới ít', 'Không tưới'],
+                        datasets: [{
+                            data: [8, 15, 10, 7],
+                            backgroundColor: ['#ef4444', '#f59e0b', '#fbbf24', '#10b981'],
+                            borderWidth: 0,
+                            hoverOffset: 15
+                        }]
+                    },
+                    options: {
+                        responsive: true
+                    }
+                });
+            } else {
+                window.farmChart = null;
+            }
+
+            // =========================
+            // AHP CALCULATE
+            // =========================
+            window.calculateAHP = function () {
+                const spinner = document.getElementById('spinner');
+                if (spinner) spinner.style.display = 'flex';
+
+                const soil = document.getElementById('soil')?.value || 0;
+                const rain = document.getElementById('rainInput')?.value || 0;
+                const eto = document.getElementById('eto')?.value || 0;
+                const temp = document.getElementById('tempInput')?.value || 0;
+                const humidity = document.getElementById('humidityInput')?.value || 0;
+                const radiation = document.getElementById('radiationInput')?.value || 0;
+
+                setTimeout(() => {
+                    let score = (
+                        parseFloat(soil) * 0.25 +
+                        (parseFloat(rain) / 50) * 0.20 +
+                        (parseFloat(eto) / 8) * 0.18 +
+                        (parseFloat(temp) / 40) * 0.15 +
+                        (parseFloat(humidity) / 100) * 0.12 +
+                        (parseFloat(radiation) / 1000) * 0.10
+                    ).toFixed(2);
+
+                    let status = '';
+                    if (score < 0.3) status = 'Không tưới';
+                    else if (score < 0.5) status = 'Tưới ít';
+                    else if (score < 0.7) status = 'Tưới vừa';
+                    else status = 'Tưới nhiều';
+
+                    const resultScore = document.getElementById('resultScore');
+                    const resultText = document.getElementById('resultText');
+                    const resultBox = document.getElementById('resultBox');
+                    const irrigationStatus = document.getElementById('irrigationStatus');
+
+                    if (resultScore) resultScore.innerHTML = `Điểm: ${score}`;
+                    if (resultText) resultText.innerHTML = `→ ${status}`;
+                    if (resultBox) resultBox.style.display = 'block';
+                    if (spinner) spinner.style.display = 'none';
+                    if (irrigationStatus) irrigationStatus.innerHTML = status;
+                }, 1000);
+            };
+
+            // =========================
+            // HÀM PHỤ
+            // =========================
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    return m;
+                });
+            }
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
                     }
                 }
+                return cookieValue;
             }
-        });
 
-        // ===== AHP CALCULATION FUNCTION =====
-        function calculateAHP() {
-            document.getElementById('spinner').style.display = 'flex';
+            // =========================
+            // CHAT SESSION
+            // =========================
+            function saveSessions() {
+                localStorage.setItem('chat_sessions', JSON.stringify(sessions));
+            }
 
-            const soil = document.getElementById('soil').value;
-            const rain = document.getElementById('rainInput').value;
-            const eto = document.getElementById('eto').value;
-            const temp = document.getElementById('tempInput').value;
-            const humidity = document.getElementById('humidityInput').value;
-            const radiation = document.getElementById('radiationInput').value;
+            function createNewSession() {
+                const newId = Date.now().toString();
+                const newSession = {
+                    id: newId,
+                    name: `Cuộc trò chuyện ${new Date().toLocaleString()}`,
+                    createdAt: new Date().toISOString(),
+                    messages: []
+                };
+                sessions.unshift(newSession);
+                saveSessions();
+                currentSessionId = newId;
+                renderSessionList();
+                loadSessionToChat(currentSessionId);
+            }
 
-            setTimeout(() => {
-                let score = (
-                    parseFloat(soil) * 0.25 +
-                    (parseFloat(rain) / 50) * 0.20 +
-                    (parseFloat(eto) / 8) * 0.18 +
-                    (parseFloat(temp) / 40) * 0.15 +
-                    (parseFloat(humidity) / 100) * 0.12 +
-                    (parseFloat(radiation) / 1000) * 0.10
-                ).toFixed(2);
-
-                let status = '';
-                if (score < 0.3) status = 'Không tưới';
-                else if (score < 0.5) status = 'Tưới ít';
-                else if (score < 0.7) status = 'Tưới vừa';
-                else status = 'Tưới nhiều';
-
-                document.getElementById('resultScore').innerHTML = `Điểm: ${score}`;
-                document.getElementById('resultText').innerHTML = `→ ${status}`;
-                document.getElementById('resultBox').style.display = 'block';
-
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('irrigationStatus').innerHTML = status;
-            }, 1000);
-        }
-
-        // Smooth scroll
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
+            function loadSessions() {
+                const stored = localStorage.getItem('chat_sessions');
+                sessions = stored ? JSON.parse(stored) : [];
+                if (sessions.length === 0) createNewSession();
+                if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
+                    currentSessionId = sessions[0]?.id;
                 }
-            });
-        });
-
-        // Hover effect
-        document.querySelectorAll('.criteria-card').forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-10px)';
-            });
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
-            });
-        });
-
-        // Ctrl + Enter shortcut
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                calculateAHP();
+                renderSessionList();
+                if (currentSessionId) loadSessionToChat(currentSessionId);
             }
-        });
 
-        // ===== CHATBOX =====
-        let currentSessionId = null;
-        let sessions = []; 
-
-        function loadSessions() {
-            const stored = localStorage.getItem('chat_sessions');
-            if (stored) {
-                sessions = JSON.parse(stored);
-            } else {
-                sessions = [];
-            }
-            if (sessions.length === 0) {
-                createNewSession();
-            }
-            // Đảm bảo currentSessionId hợp lệ
-            if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
-                currentSessionId = sessions[0].id;
-            }
-            renderSessionList();
-            loadSessionToChat(currentSessionId);
-        }
-
-        // Tạo phiên mới
-        function createNewSession() {
-            const newId = Date.now().toString();
-            const newSession = {
-                id: newId,
-                name: `Cuộc trò chuyện ${new Date().toLocaleString()}`,
-                createdAt: new Date().toISOString(),
-                messages: []
-            };
-            sessions.unshift(newSession); // thêm lên đầu
-            saveSessions();
-            currentSessionId = newId;
-            renderSessionList();
-            loadSessionToChat(currentSessionId);
-        }
-
-        // Lưu danh sách phiên
-        function saveSessions() {
-            localStorage.setItem('chat_sessions', JSON.stringify(sessions));
-        }
-
-        // Xóa một phiên
-        function deleteSession(sessionId) {
-            if (sessions.length === 1) {
-                // Không cho xóa phiên cuối cùng, thay vào đó xóa tin nhắn
+            function loadSessionToChat(sessionId) {
                 const session = sessions.find(s => s.id === sessionId);
+                if (!session) return;
+                currentSessionId = sessionId;
+                const messagesDiv = document.getElementById("chatbox-messages");
+                if (!messagesDiv) return;
+                messagesDiv.innerHTML = '';
+                session.messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = msg.role === 'user' ? 'user-message' : 'bot-message';
+                    div.innerHTML = msg.content.replace(/\n/g, "<br>");
+                    messagesDiv.appendChild(div);
+                });
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            function addMessageToCurrentSession(role, content) {
+                const session = sessions.find(s => s.id === currentSessionId);
+                if (session) {
+                    session.messages.push({ role, content });
+                    saveSessions();
+                }
+            }
+
+            function deleteSession(sessionId) {
+                if (sessions.length === 1) {
+                    const session = sessions.find(s => s.id === sessionId);
+                    if (session) {
+                        session.messages = [];
+                        saveSessions();
+                        if (currentSessionId === sessionId) loadSessionToChat(currentSessionId);
+                    }
+                    return;
+                }
+
+                sessions = sessions.filter(s => s.id !== sessionId);
+                if (currentSessionId === sessionId) currentSessionId = sessions[0]?.id;
+                saveSessions();
+                renderSessionList();
+                if (currentSessionId) loadSessionToChat(currentSessionId);
+            }
+
+            function renderSessionList() {
+                const chatbox = document.getElementById("chatbox-container");
+                let sessionListDiv = document.getElementById("session-list");
+
+                if (!sessionListDiv && chatbox) {
+                    sessionListDiv = document.createElement('div');
+                    sessionListDiv.id = "session-list";
+                    chatbox.appendChild(sessionListDiv);
+                }
+
+                if (!sessionListDiv) return;
+
+                sessionListDiv.innerHTML = '<div style="padding: 8px 12px; font-weight: bold; border-bottom: 1px solid #ddd;">Lịch sử chat</div>';
+
+                sessions.forEach(session => {
+                    const item = document.createElement('div');
+                    item.style.cssText = "padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 13px; display: flex; justify-content: space-between; align-items: center;";
+                    item.innerHTML = `
+                        <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            ${escapeHtml(session.name)}
+                        </span>
+                        <button style="background:none; border:none; color:red; cursor:pointer; font-size:16px;">🗑</button>
+                    `;
+
+                    item.onclick = () => {
+                        currentSessionId = session.id;
+                        loadSessionToChat(currentSessionId);
+                        sessionListDiv.style.display = 'none';
+                    };
+
+                    item.querySelector("button").onclick = (event) => {
+                        event.stopPropagation();
+                        deleteSession(session.id);
+                    };
+
+                    sessionListDiv.appendChild(item);
+                });
+
+                const newBtn = document.createElement('div');
+                newBtn.style.cssText = "padding: 8px 12px; text-align: center; border-top: 1px solid #ddd; cursor: pointer; color: #10b981; font-weight: bold;";
+                newBtn.innerText = '+ Tạo cuộc trò chuyện mới';
+                newBtn.onclick = () => {
+                    createNewSession();
+                    sessionListDiv.style.display = 'none';
+                };
+                sessionListDiv.appendChild(newBtn);
+            }
+
+            // =========================
+            // CHAT FUNCTIONS
+            // =========================
+            window.sendMessage = function () {
+                const input = document.getElementById("chat-input");
+                const messages = document.getElementById("chatbox-messages");
+                if (!input || !messages) return;
+
+                let text = input.value.trim();
+                if (!text) return;
+
+                addMessageToCurrentSession('user', text);
+
+                const userMsgDiv = document.createElement('div');
+                userMsgDiv.className = 'user-message';
+                userMsgDiv.innerText = text;
+                messages.appendChild(userMsgDiv);
+                input.value = "";
+                messages.scrollTop = messages.scrollHeight;
+
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'bot-message';
+                typingDiv.id = 'typing';
+                typingDiv.innerHTML = '<div class="typing-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+                messages.appendChild(typingDiv);
+                messages.scrollTop = messages.scrollHeight;
+
+                fetch("/chatbot/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie("csrftoken")
+                    },
+                    body: JSON.stringify({ message: text })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const typingElem = document.getElementById("typing");
+                    if (typingElem) typingElem.remove();
+
+                    let botReply = data.reply || "⚠️ Không có phản hồi từ chatbot.";
+                    addMessageToCurrentSession('bot', botReply);
+
+                    const botMsgDiv = document.createElement('div');
+                    botMsgDiv.className = 'bot-message';
+                    botMsgDiv.innerHTML = botReply.replace(/\n/g, "<br>");
+                    messages.appendChild(botMsgDiv);
+                    messages.scrollTop = messages.scrollHeight;
+                })
+                .catch(err => {
+                    const typingElem = document.getElementById("typing");
+                    if (typingElem) typingElem.remove();
+
+                    const errMsg = "⚠️ Không thể kết nối chatbot.";
+                    addMessageToCurrentSession('bot', errMsg);
+
+                    const errMsgDiv = document.createElement('div');
+                    errMsgDiv.className = 'bot-message';
+                    errMsgDiv.innerText = errMsg;
+                    messages.appendChild(errMsgDiv);
+                    messages.scrollTop = messages.scrollHeight;
+                });
+            };
+
+            window.quickAsk = function(question) {
+                const input = document.getElementById("chat-input");
+                if (input) input.value = question;
+                window.sendMessage();
+            };
+
+            window.clearChat = function () {
+                const session = sessions.find(s => s.id === currentSessionId);
                 if (session) {
                     session.messages = [];
                     saveSessions();
-                    if (currentSessionId === sessionId) loadSessionToChat(currentSessionId);
-                }
-                return;
-            }
-            sessions = sessions.filter(s => s.id !== sessionId);
-            if (currentSessionId === sessionId) {
-                currentSessionId = sessions[0].id;
-                loadSessionToChat(currentSessionId);
-            }
-            saveSessions();
-            renderSessionList();
-        }
-
-        // Đổi tên phiên (tự động từ tin nhắn đầu tiên)
-        function updateSessionName(sessionId, name) {
-            const session = sessions.find(s => s.id === sessionId);
-            if (session && session.name !== name) {
-                session.name = name;
-                saveSessions();
-                renderSessionList();
-                // Cập nhật tiêu đề nếu là phiên hiện tại
-                if (currentSessionId === sessionId) {
-                    const headerSpan = document.querySelector("#chatbox-header span");
-                    if (headerSpan) headerSpan.innerText = `🤖 Trợ lý AI - ${name}`;
-                }
-            }
-        }
-
-        // Load nội dung phiên lên khung chat
-        function loadSessionToChat(sessionId) {
-            const session = sessions.find(s => s.id === sessionId);
-            if (!session) return;
-            currentSessionId = sessionId;
-            const messagesDiv = document.getElementById("chatbox-messages");
-            messagesDiv.innerHTML = '';
-            session.messages.forEach(msg => {
-                const div = document.createElement('div');
-                div.className = msg.role === 'user' ? 'user-message' : 'bot-message';
-                div.innerHTML = msg.content.replace(/\n/g, "<br>");
-                messagesDiv.appendChild(div);
-            });
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            // Cập nhật tiêu đề chatbox
-            const headerSpan = document.querySelector("#chatbox-header span");
-            if (headerSpan) headerSpan.innerText = `🤖 Trợ lý AI - ${session.name}`;
-        }
-
-        // Lưu tin nhắn vào phiên hiện tại
-        function addMessageToCurrentSession(role, content) {
-            const session = sessions.find(s => s.id === currentSessionId);
-            if (session) {
-                session.messages.push({ role, content });
-                // Nếu là tin nhắn đầu tiên của phiên (và là user), đặt tên phiên theo nội dung
-                if (session.messages.length === 1 && role === 'user') {
-                    let shortName = content.length > 30 ? content.substring(0, 30) + '...' : content;
-                    updateSessionName(currentSessionId, shortName);
-                }
-                saveSessions();
-            }
-        }
-
-        // Hiển thị danh sách phiên (dưới dạng dropdown)
-        function renderSessionList() {
-            const chatbox = document.getElementById("chatbox-container");
-            let sessionListDiv = document.getElementById("session-list");
-            
-            if (!sessionListDiv) {
-                const listDiv = document.createElement('div');
-                listDiv.id = "session-list";
-                // Không set style inline, để CSS quản lý
-                chatbox.appendChild(listDiv);
-                sessionListDiv = listDiv;
-            }
-            
-
-            
-            // Xây dựng nội dung danh sách phiên
-            sessionListDiv.innerHTML = '<div style="padding: 8px 12px; font-weight: bold; border-bottom: 1px solid #ddd;">Lịch sử chat</div>';
-            sessions.forEach(session => {
-                const item = document.createElement('div');
-                item.style.cssText = "padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 13px; display: flex; justify-content: space-between; align-items: center;";
-                item.innerHTML = `<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(session.name)}</span>
-                                <button style="background:none; border:none; color:red; cursor:pointer; font-size:16px;" onclick="event.stopPropagation(); deleteSession('${session.id}')">🗑</button>`;
-                item.onclick = () => {
-                    currentSessionId = session.id;
                     loadSessionToChat(currentSessionId);
-                    sessionListDiv.style.display = 'none';
-                };
-                sessionListDiv.appendChild(item);
-            });
-            
-            // Nút tạo mới
-            const newBtn = document.createElement('div');
-            newBtn.style.cssText = "padding: 8px 12px; text-align: center; border-top: 1px solid #ddd; cursor: pointer; color: #10b981; font-weight: bold;";
-            newBtn.innerText = '+ Tạo cuộc trò chuyện mới';
-            newBtn.onclick = () => {
-                createNewSession();
-                sessionListDiv.style.display = 'none';
+                }
             };
-            sessionListDiv.appendChild(newBtn);
-        }
 
-        // Hàm thoát HTML tránh lỗi
-        function escapeHtml(str) {
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-                return c;
-            });
-        }
-        // Hàm gửi tin nhắn (đã cập nhật)
-        function sendMessage() {
-            const input = document.getElementById("chat-input");
-            const messages = document.getElementById("chatbox-messages");
-            let text = input.value.trim();
-            if (!text) return;
+            window.toggleChat = function () {
+                const box = document.getElementById("chatbox-container");
+                const toggleBtn = document.getElementById("chat-toggle-btn");
+                if (!box || !toggleBtn) return;
 
-            // Thêm tin nhắn user vào model
-            addMessageToCurrentSession('user', text);
-            // Hiển thị lên giao diện
-            const userMsgDiv = document.createElement('div');
-            userMsgDiv.className = 'user-message';
-            userMsgDiv.innerText = text;
-            messages.appendChild(userMsgDiv);
-            input.value = "";
-            messages.scrollTop = messages.scrollHeight;
+                chatCollapsed = !chatCollapsed;
 
-            // Typing indicator
-            const typingDiv = document.createElement('div');
-            typingDiv.className = 'bot-message';
-            typingDiv.id = 'typing';
-            typingDiv.innerHTML = '<div class="typing-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
-            messages.appendChild(typingDiv);
-            messages.scrollTop = messages.scrollHeight;
+                if (chatCollapsed) {
+                    box.classList.add("collapsed");
+                    toggleBtn.innerHTML = "+";
+                } else {
+                    box.classList.remove("collapsed");
+                    toggleBtn.innerHTML = "−";
+                }
+            };
 
-            fetch("/chatbot/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken")
-                },
-                body: JSON.stringify({ message: text })
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById("typing")?.remove();
-                let botReply = data.reply;
-                addMessageToCurrentSession('bot', botReply);
-                const botMsgDiv = document.createElement('div');
-                botMsgDiv.className = 'bot-message';
-                botMsgDiv.innerHTML = botReply.replace(/\n/g, "<br>");
-                messages.appendChild(botMsgDiv);
-                messages.scrollTop = messages.scrollHeight;
-            })
-            .catch(err => {
-                document.getElementById("typing")?.remove();
-                const errMsg = "⚠️ Không thể kết nối chatbot.";
-                addMessageToCurrentSession('bot', errMsg);
-                const errMsgDiv = document.createElement('div');
-                errMsgDiv.className = 'bot-message';
-                errMsgDiv.innerText = errMsg;
-                messages.appendChild(errMsgDiv);
-                messages.scrollTop = messages.scrollHeight;
-            });
-        }
+            window.openChat = function () {
+                const box = document.getElementById("chatbox-container");
+                const fab = document.getElementById("chat-fab");
+                const toggleBtn = document.getElementById("chat-toggle-btn");
 
-        // Xóa toàn bộ tin nhắn của phiên hiện tại
-        function clearChat() {
-            const session = sessions.find(s => s.id === currentSessionId);
-            if (session) {
-                session.messages = [];
-                saveSessions();
-                loadSessionToChat(currentSessionId);
-            }
-        }
+                if (box && fab) {
+                    box.style.display = "flex";
+                    fab.style.display = "none";
+                    box.classList.remove("collapsed");
+                    if (toggleBtn) toggleBtn.innerHTML = "−";
+                    chatCollapsed = false;
+                }
+            };
 
+            window.closeChatFully = function () {
+                const box = document.getElementById("chatbox-container");
+                const fab = document.getElementById("chat-fab");
+                if (box) box.style.display = "none";
+                if (fab) fab.style.display = "block";
+            };
 
-        // Hàm khôi phục lịch sử khi load trang
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
+            window.toggleSessionList = function () {
+                const listDiv = document.getElementById("session-list");
+                if (listDiv) {
+                    listDiv.style.display = listDiv.style.display === 'block' ? 'none' : 'block';
+                }
+            };
+
+            // =========================
+            // REFRESH REALTIME
+            // =========================
+            async function refreshDashboardData() {
+                try {
+                    const weatherRes = await fetch("/realtime/");
+                    const weather = await weatherRes.json();
+
+                    const weatherCards = document.querySelectorAll(".weather-card");
+                    if (weatherCards.length >= 4) {
+                        weatherCards[0].querySelector(".weather-value").innerHTML = weather.temperature + "°C";
+                        weatherCards[1].querySelector(".weather-value").innerHTML = weather.humidity + "%";
+                        weatherCards[2].querySelector(".weather-value").innerHTML = weather.rain + "mm";
+                        weatherCards[3].querySelector(".weather-value").innerHTML = weather.wind + "km/h";
                     }
-                }
-            }
-            return cookieValue;
-        }
 
-        // gợi ý nhanh
-        function quickAsk(question) {
-            document.getElementById("chat-input").value = question;
-            sendMessage();
-        }
+                    const farmsRes = await fetch("/gardens_realtime/");
+                    const farms = await farmsRes.json();
 
-        let chatCollapsed = false;
+                    const sorted = [...farms].sort((a, b) => a.soil - b.soil);
+                    const top5 = sorted.slice(0, 5);
+                    const wetFarms = farms.filter(f => f.soil > 0.48);
+                    const highPriority = farms.filter(f => (f.status || "").toLowerCase().includes("nhiều")).length;
+                    const safeCount = farms.filter(f => {
+                        const s = (f.status || "").toLowerCase();
+                        return s.includes("không") || s.includes("ít");
+                    }).length;
 
-        function toggleChat() {
-            const box = document.getElementById("chatbox-container");
-            const toggleBtn = document.getElementById("chat-toggle-btn");
-
-            chatCollapsed = !chatCollapsed;
-
-            if (chatCollapsed) {
-                box.classList.add("collapsed");
-                toggleBtn.innerHTML = "+";
-            } else {
-                box.classList.remove("collapsed");
-                toggleBtn.innerHTML = "−";
-            }
-        }
-
-        function openChat() {
-            const box = document.getElementById("chatbox-container");
-            const fab = document.getElementById("chat-fab");
-            const toggleBtn = document.getElementById("chat-toggle-btn");
-
-            box.style.display = "flex";
-            fab.style.display = "none";
-            box.classList.remove("collapsed");
-            toggleBtn.innerHTML = "−";
-            chatCollapsed = false;
-        }
-
-        function closeChatFully() {
-            const box = document.getElementById("chatbox-container");
-            const fab = document.getElementById("chat-fab");
-
-            box.style.display = "none";
-            fab.style.display = "block";
-        }
-
-        function toggleSessionList() {
-            const listDiv = document.getElementById("session-list");
-            if (listDiv) {
-                listDiv.style.display = listDiv.style.display === 'block' ? 'none' : 'block';
-            }
-        }
-
-        async function refreshDashboardData() {
-            try {
-                const weatherRes = await fetch("/realtime/");
-                if (!weatherRes.ok) throw new Error("Weather fetch failed");
-                const weather = await weatherRes.json();
-
-                // Cập nhật thẻ thời tiết an toàn
-                const weatherCards = document.querySelectorAll(".weather-card");
-                if (weatherCards.length >= 4) {
-                    const tempVal = weatherCards[0]?.querySelector(".weather-value");
-                    if (tempVal) tempVal.innerHTML = weather.temperature + "°C";
-                    const humVal = weatherCards[1]?.querySelector(".weather-value");
-                    if (humVal) humVal.innerHTML = weather.humidity + "%";
-                    const rainVal = weatherCards[2]?.querySelector(".weather-value");
-                    if (rainVal) rainVal.innerHTML = weather.rain + "mm";
-                    const windVal = weatherCards[3]?.querySelector(".weather-value");
-                    if (windVal) windVal.innerHTML = weather.wind + "km/h";
-                }
-
-                const farmsRes = await fetch("/gardens_realtime/");
-                if (!farmsRes.ok) throw new Error("Farms fetch failed");
-                const farms = await farmsRes.json();
-
-                const sorted = [...farms].sort((a, b) => a.soil - b.soil);
-                const top5 = sorted.slice(0, 5);
-                const wetFarms = farms.filter(f => f.soil > 0.48);
-                const highPriority = farms.filter(f => (f.status || "").toLowerCase().includes("nhiều")).length;
-                const safeCount = farms.filter(f => {
-                    const s = (f.status || "").toLowerCase();
-                    return s.includes("không") || s.includes("ít");
-                }).length;
-
-                // Cập nhật từng phần tử có kiểm tra null
-                const farmSummaryEl = document.getElementById("farm-ai-summary");
-                if (farmSummaryEl) {
-                    farmSummaryEl.innerText = `AI đang theo dõi ${farms.length} vườn. Hiện có ${highPriority} vườn cần ưu tiên tưới và ${wetFarms.length} vườn có nguy cơ úng.`;
-                }
-
-                const highPriorityEl = document.getElementById("high-priority-count");
-                if (highPriorityEl) highPriorityEl.innerText = highPriority;
-
-                const safeCountEl = document.getElementById("safe-count");
-                if (safeCountEl) safeCountEl.innerText = safeCount;
-
-                const topBody = document.getElementById("top-dry-farms-body");
-                if (topBody) {
-                    topBody.innerHTML = "";
-                    top5.forEach(farm => {
-                        topBody.innerHTML += `
-                            <tr>
-                                <td>${farm.id}</td>
-                                <td>${escapeHtml(farm.name)}</td>
-                                <td>${farm.soil}</td>
-                                <td>${farm.status}</td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                const wetBox = document.getElementById("wet-farms-box");
-                if (wetBox) {
-                    if (wetFarms.length > 0) {
-                        wetBox.innerHTML = "<ul style='font-size:16px; line-height:2;'>" +
-                            wetFarms.map(f => `<li>${escapeHtml(f.name)} — Độ ẩm đất: ${f.soil}</li>`).join("") +
-                            "</ul>";
-                    } else {
-                        wetBox.innerHTML = "<p>✅ Hiện chưa có vườn nào nguy cơ úng cao.</p>";
+                    const farmSummaryEl = document.getElementById("farm-ai-summary");
+                    if (farmSummaryEl) {
+                        farmSummaryEl.innerText = `AI đang theo dõi ${farms.length} vườn. Hiện có ${highPriority} vườn cần ưu tiên tưới và ${wetFarms.length} vườn có nguy cơ úng.`;
                     }
-                }
 
-                // Cập nhật biểu đồ nếu tồn tại
-                if (window.farmChart && window.farmChart.data && window.farmChart.data.datasets) {
-                    window.farmChart.data.datasets[0].data = [highPriority, 15, 10, 7];
-                    window.farmChart.update();
+                    const highPriorityEl = document.getElementById("high-priority-count");
+                    if (highPriorityEl) highPriorityEl.innerText = highPriority;
+
+                    const safeCountEl = document.getElementById("safe-count");
+                    if (safeCountEl) safeCountEl.innerText = safeCount;
+
+                    const topBody = document.getElementById("top-dry-farms-body");
+                    if (topBody) {
+                        topBody.innerHTML = "";
+                        top5.forEach(farm => {
+                            topBody.innerHTML += `
+                                <tr>
+                                    <td>${farm.id}</td>
+                                    <td>${escapeHtml(farm.name)}</td>
+                                    <td>${farm.soil}</td>
+                                    <td>${farm.status}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+
+                    const wetBox = document.getElementById("wet-farms-box");
+                    if (wetBox) {
+                        if (wetFarms.length) {
+                            wetBox.innerHTML = `<ul style="font-size:16px; line-height:2;">` +
+                                wetFarms.map(f => `<li>${escapeHtml(f.name)} — Độ ẩm đất: ${f.soil}</li>`).join("") +
+                                `</ul>`;
+                        } else {
+                            wetBox.innerHTML = "<p>✅ Hiện chưa có vườn nào nguy cơ úng cao.</p>";
+                        }
+                    }
+
+                    if (window.farmChart) {
+                        window.farmChart.data.datasets[0].data = [highPriority, 15, 10, 7];
+                        window.farmChart.update();
+                    }
+
+                } catch (err) {
+                    console.error("Lỗi refresh dashboard:", err);
                 }
-            } catch (err) {
-                console.error("Lỗi refresh dashboard:", err);
             }
-        }
 
-        // Thêm hàm escapeHtml nếu chưa có (đã có ở trên, nhưng để chắc chắn)
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
+            // =========================
+            // SỰ KIỆN
+            // =========================
+            const chatInput = document.getElementById("chat-input");
+            if (chatInput) {
+                chatInput.addEventListener("keypress", function(e) {
+                    if (e.key === "Enter") window.sendMessage();
+                });
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') window.calculateAHP();
             });
-        }
 
-        setTimeout(refreshDashboardData, 1000);
+            document.addEventListener('click', function(event) {
+                const sessionList = document.getElementById('session-list');
+                const toggleBtn = document.getElementById('session-toggle-header');
+                if (sessionList && toggleBtn && !toggleBtn.contains(event.target) && !sessionList.contains(event.target)) {
+                    sessionList.style.display = 'none';
+                }
+            });
 
-        setInterval(refreshDashboardData, 60000);
-
-        // Cập nhật sự kiện gửi tin nhắn bằng Enter (giữ nguyên)
-        document.getElementById("chat-input").addEventListener("keypress", function(e) {
-            if (e.key === "Enter") {
-                sendMessage();
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
             loadSessions();
-            document.getElementById("session-toggle-header").onclick = toggleSessionList;
-        });
-        // Thêm vào cuối script, sau hàm toggleSessionList
-        document.addEventListener('click', function(event) {
-            const sessionList = document.getElementById('session-list');
-            const toggleBtn = document.getElementById('session-toggle-header');
-            if (sessionList && toggleBtn && !toggleBtn.contains(event.target) && !sessionList.contains(event.target)) {
-                sessionList.style.display = 'none';
-            }
+            setTimeout(refreshDashboardData, 1000);
+            setInterval(refreshDashboardData, 60000);
         });
     </script>
 </body>

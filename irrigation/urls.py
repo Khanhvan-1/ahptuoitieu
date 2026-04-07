@@ -16,6 +16,7 @@ urlpatterns = [
     path('map/', views.map_view, name='map'),
     path('sensor/', views.sensor_page, name='sensor'),
     path('irrigation/', views.irrigation_page, name='irrigation'),
+    path('simulation/', views.simulation, name='simulation'),
 
     # API / Data
     path('calculate/', views.calculate_irrigation, name='calculate'),
@@ -26,7 +27,7 @@ urlpatterns = [
     path('chatbot/', views.chatbot_response, name='chatbot'),   
     
     #New AI và realtime
-    path('api/gardens-realtime/', views.gardens_realtime, name='gardens_realtime'),
+    path('gardens_realtime/', views.gardens_realtime, name='gardens_realtime'),
     path('api/compare-gardens/', views.compare_gardens, name='compare_gardens'),
     path('api/ahp-ai/', views.ahp_ai_data, name='ahp_ai_data'),
 ]

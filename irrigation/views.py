@@ -251,6 +251,7 @@ def gardens_realtime(request):
     return JsonResponse(farms, safe=False)
 
 @login_required
+@login_required
 def dashboard(request):
     try:
         cache_session = requests_cache.CachedSession('.cache', expire_after=15)
@@ -273,43 +274,83 @@ def dashboard(request):
                 "et0_fao_evapotranspiration",
                 "soil_moisture_0_to_1cm"
             ],
-            "timezone": "Asia/Bangkok"
+            "timezone": "Asia/Bangkok",
+            "forecast_days": 1
         }
 
         responses = openmeteo.weather_api(url, params=params)
         response = responses[0]
-        current = response.Current()
 
+        # =========================
+        # DỮ LIỆU HIỆN TẠI
+        # =========================
+        current = response.Current()
         temperature = round(current.Variables(0).Value(), 2)
         humidity = round(current.Variables(1).Value(), 2)
         rain = round(current.Variables(2).Value(), 2)
         wind = round(current.Variables(3).Value(), 2)
         radiation = round(current.Variables(4).Value(), 2)
 
+        # =========================
+        # DỮ LIỆU THEO GIỜ
+        # =========================
         hourly = response.Hourly()
 
-        try:
-            eto = round(float(hourly.Variables(1).ValuesAsNumpy()[0]), 2)
-        except:
-            eto = 0
+        temp_24h = hourly.Variables(0).ValuesAsNumpy()[:24]
+        eto_24h  = hourly.Variables(1).ValuesAsNumpy()[:24]
+        soil_24h = hourly.Variables(2).ValuesAsNumpy()[:24]
 
-        try:
-            soil_moisture = round(float(hourly.Variables(2).ValuesAsNumpy()[0]), 3)
-        except:
-            soil_moisture = 0
+        # Convert an toàn
+        temp_values = [round(float(t), 1) if t is not None else 0 for t in temp_24h]
+        soil_values = [round(float(s), 3) if s is not None else 0 for s in soil_24h]
+
+        # Tạo nhãn giờ chuẩn luôn, KHÔNG phụ thuộc SDK Time()
+        temp_labels = [f"{i}h" for i in range(24)]
+        soil_labels = [f"{i}h" for i in range(24)]
+
+        # Giá trị hiện tại để AI dùng
+        soil_moisture = soil_values[0] if soil_values else 0.28
+        eto = round(float(eto_24h[0]), 2) if len(eto_24h) > 0 else 0
+
+        print("===== DEBUG CHART =====")
+        print("temp_values:", temp_values)
+        print("soil_values:", soil_values)
+        print("labels:", temp_labels)
 
     except Exception as e:
         print("Lỗi dashboard API:", e)
+        import traceback
+        traceback.print_exc()
 
-        # fallback dữ liệu mặc định để KHÔNG trắng trang
-        temperature = 28
-        humidity = 65
-        rain = 0
-        wind = 3
-        radiation = 220
+        # Fallback phải là dữ liệu giả "có dao động", KHÔNG dùng toàn 0
+        temperature = 28.0
+        humidity = 65.0
+        rain = 0.0
+        wind = 3.0
+        radiation = 220.0
         eto = 3.5
         soil_moisture = 0.28
 
+        temp_labels = [f"{i}h" for i in range(24)]
+        soil_labels = [f"{i}h" for i in range(24)]
+
+        temp_values = [
+            24.5, 24.2, 24.0, 23.8, 23.7, 24.1,
+            25.0, 26.3, 27.8, 29.2, 30.4, 31.1,
+            31.8, 32.0, 31.5, 30.8, 29.9, 28.7,
+            27.6, 26.8, 26.0, 25.5, 25.0, 24.7
+        ]
+
+        soil_values = [
+            0.31, 0.305, 0.302, 0.298, 0.295, 0.290,
+            0.286, 0.282, 0.278, 0.274, 0.270, 0.266,
+            0.262, 0.258, 0.255, 0.252, 0.249, 0.246,
+            0.243, 0.240, 0.238, 0.236, 0.234, 0.232
+        ]
+
+    # =========================
+    # AI DỰ ĐOÁN
+    # =========================
     try:
         score, irrigation_status, proba = ai_predict(
             soil_moisture, rain, eto, temperature, humidity, radiation
@@ -318,30 +359,29 @@ def dashboard(request):
         print("Lỗi AI predict:", e)
         score = 0
         irrigation_status = "Không xác định"
-    # ===== AI EXPLANATION =====
-    ai_explanation = []
+        proba = {"high": 0, "medium": 0, "low": 0, "none": 0}
 
+    # =========================
+    # GIẢI THÍCH AI
+    # =========================
+    ai_explanation = []
     if soil_moisture < 0.2:
         ai_explanation.append(f"Độ ẩm đất rất thấp ({soil_moisture})")
-
     if rain == 0:
         ai_explanation.append("Không có mưa gần đây")
-
     if temperature > 30:
         ai_explanation.append(f"Nhiệt độ cao ({temperature}°C)")
-
     if radiation > 900:
         ai_explanation.append(f"Bức xạ mạnh ({radiation})")
-
     if eto > 3:
         ai_explanation.append(f"ETo cao ({eto})")
-
     if not ai_explanation:
         ai_explanation.append("Điều kiện môi trường ổn định")
-
     ai_explanation_text = " → ".join(ai_explanation)
 
-        # ===== AI ACTION RECOMMENDATION =====
+    # =========================
+    # KHUYẾN NGHỊ TƯỚI
+    # =========================
     if "nhiều" in irrigation_status.lower():
         water_amount = "20 - 25 lít/gốc"
         duration = "20 - 25 phút"
@@ -355,9 +395,10 @@ def dashboard(request):
         water_amount = "0 lít"
         duration = "Không cần tưới"
 
-    # ===== AI WARNING =====
+    # =========================
+    # CẢNH BÁO
+    # =========================
     ai_warning = None
-
     if soil_moisture < 0.15 and temperature > 32:
         ai_warning = "⚠️ Nguy cơ khô hạn cao, cần tưới gấp!"
     elif soil_moisture > 0.5:
@@ -365,21 +406,10 @@ def dashboard(request):
     elif temperature > 35:
         ai_warning = "⚠️ Nhiệt độ quá cao, cây dễ bị stress!"
 
-        print("===== DỮ LIỆU MỚI =====")
-        print("soil_moisture:", soil_moisture)
-        print("rain:", rain)
-        print("eto:", eto)
-        print("temperature:", temperature)
-        print("humidity:", humidity)
-        print("radiation:", radiation)
-
-        print("===== AI KẾT QUẢ =====")
-        print("score:", score)
-        print("irrigation_status:", irrigation_status)
-        print("proba:", proba)
-
+    # =========================
+    # DỮ LIỆU VƯỜN
+    # =========================
     farms = get_latest_garden_data()
-
     top_dry_farms = sorted(farms, key=lambda x: x["soil"])[:5]
     wet_farms = [f for f in farms if f["soil"] > 0.48]
     high_priority_count = sum(1 for f in farms if "nhiều" in f["status"].lower())
@@ -390,6 +420,7 @@ def dashboard(request):
         f"Hiện có {high_priority_count} vườn cần ưu tiên tưới "
         f"và {len(wet_farms)} vườn có nguy cơ úng."
     )
+
     context = {
         "temperature": temperature,
         "humidity": humidity,
@@ -411,15 +442,15 @@ def dashboard(request):
         "farm_ai_summary": farm_ai_summary,
         "high_priority_count": high_priority_count,
         "safe_count": safe_count,
-        "labels": ['10h','11h','12h','13h','14h'],
-        "values": [30,31,32,31,30],
-        "soil_labels": ['10h','11h','12h','13h','14h'],
-        "soil_values": [0.2,0.25,0.3,0.28,0.27],
+        "labels": json.dumps(temp_labels),
+        "values": json.dumps(temp_values),
+        "soil_labels": json.dumps(soil_labels),
+        "soil_values": json.dumps(soil_values),
         "current_time": datetime.now().strftime("%H:%M:%S"),
         "current_date": datetime.now().strftime("%d/%m/%Y"),
     }
-    return render(request, "dashboard.html", context)
 
+    return render(request, "dashboard.html", context)
 @csrf_exempt
 def compare_gardens(request):
     if request.method != "POST":
@@ -505,36 +536,51 @@ def ahp_ai_data(request):
 # Realtime weather API
 # =====================
 def realtime_data(request):
-    cache_session = requests_cache.CachedSession('.cache', expire_after=15)
-    retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
-    openmeteo = openmeteo_requests.Client(session=retry_session)
+    try:
+        cache_session = requests_cache.CachedSession('.cache', expire_after=15)
+        retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
+        openmeteo = openmeteo_requests.Client(session=retry_session)
 
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": 12.3977,
-        "longitude": 108.2181,
-        "current": [
-            "temperature_2m",
-            "relative_humidity_2m",
-            "rain",
-            "wind_speed_10m",
-            "shortwave_radiation"
-        ]
-    }
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": 12.3977,
+            "longitude": 108.2181,
+            "current": [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "rain",
+                "wind_speed_10m",
+                "shortwave_radiation"
+            ]
+        }
 
-    responses = openmeteo.weather_api(url, params=params)
-    response = responses[0]
-    current = response.Current()
+        responses = openmeteo.weather_api(url, params=params)
+        if not responses:
+            raise ValueError("Không nhận được phản hồi từ Open-Meteo")
+        response = responses[0]
+        current = response.Current()
 
-    data = {
-        "temperature": round(current.Variables(0).Value(), 2),
-        "humidity": round(current.Variables(1).Value(), 2),
-        "rain": round(current.Variables(2).Value(), 2),
-        "wind": round(current.Variables(3).Value(), 2),
-        "radiation": round(current.Variables(4).Value(), 2),
-    }
-
-    return JsonResponse(data)
+        data = {
+            "temperature": round(current.Variables(0).Value(), 2),
+            "humidity": round(current.Variables(1).Value(), 2),
+            "rain": round(current.Variables(2).Value(), 2),
+            "wind": round(current.Variables(3).Value(), 2),
+            "radiation": round(current.Variables(4).Value(), 2),
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        print("Lỗi realtime_data:", e)
+        import traceback
+        traceback.print_exc()
+        # Trả về dữ liệu mặc định + mã lỗi 200 (hoặc 500 tuỳ ý)
+        return JsonResponse({
+            "temperature": 28,
+            "humidity": 65,
+            "rain": 0,
+            "wind": 3,
+            "radiation": 220,
+            "error": str(e)
+        }, status=200)  # vẫn 200 để frontend không crash, nhưng báo lỗi
 
 # =====================
 # AHP irrigation tool
@@ -763,22 +809,96 @@ def chatbot_response(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({"reply": f"⚠️ Lỗi hệ thống: {str(e)}"})
-    
+
 def simple_rule_based_fallback(message, farms, request=None):
     if not isinstance(farms, list):
         farms = []
-    msg_lower = message.lower()
+    msg_lower = message.lower().strip()
 
-    # ==================== HỎI DANH SÁCH VƯỜN TỪ CÂU TRƯỚC ====================
+    # ==================== TỪ KHÓA "KHÔ NHẤT" ====================
+    if any(k in msg_lower for k in ["khô nhất", "kho nhat", "vườn khô nhất", "vườn nào khô nhất"]):
+        if farms:
+            driest = min(farms, key=lambda x: x.get("soil", 1))
+            soil_val = driest.get('soil', 0)
+            return f"🌱 Vườn khô nhất: **{driest.get('name', '?')}** (độ ẩm {soil_val:.2f})"
+        return "Chưa có dữ liệu vườn."
+
+    # ==================== TỪ KHÓA "TOP TƯỚI" / "CẦN TƯỚI NHẤT" ====================
+    if any(k in msg_lower for k in ["top tưới", "top tuoi", "cần tưới nhất", "ưu tiên tưới"]):
+        if farms:
+            # Sắp xếp theo độ ẩm thấp nhất (cần tưới nhất)
+            sorted_farms = sorted(farms, key=lambda x: x.get("soil", 1))[:5]
+            top_list = []
+            for i, f in enumerate(sorted_farms, 1):
+                soil_val = f.get('soil', 0)
+                status = f.get('status', '?')
+                top_list.append(f"{i}. {f.get('name', '?')} (độ ẩm {soil_val:.2f} - {status})")
+            return "🔥 **TOP 5 VƯỜN CẦN TƯỚI NHẤT:**\n" + "\n".join(top_list)
+        return "Chưa có dữ liệu vườn."
+
+    # ==================== TỪ KHÓA "ỨNG" / "ÚNG NƯỚC" ====================
+    if any(k in msg_lower for k in ["ứng", "ung", "úng", "quá ẩm", "ngập", "thừa nước"]):
+        if farms:
+            wet_farms = [f for f in farms if f.get("soil", 0) > 0.48]
+            if wet_farms:
+                wet_names = [f"{f.get('name', '?')} (độ ẩm {f.get('soil', 0):.2f})" for f in wet_farms]
+                return f"⚠️ **Cảnh báo úng nước!** {len(wet_farms)} vườn có độ ẩm quá cao:\n" + "\n".join(wet_names[:10])
+            return "✅ Không có vườn nào bị úng nước. Độ ẩm đều ở mức an toàn."
+        return "Chưa có dữ liệu vườn."
+
+    # ==================== TỪ KHÓA "THỐNG KÊ" ====================
+    if any(k in msg_lower for k in ["thống kê", "thong ke", "tổng quan", "báo cáo"]):
+        if farms:
+            total = len(farms)
+            high = sum(1 for f in farms if "nhiều" in f.get("status", "").lower())
+            medium = sum(1 for f in farms if "vừa" in f.get("status", "").lower())
+            low = sum(1 for f in farms if "ít" in f.get("status", "").lower())
+            none = sum(1 for f in farms if "không" in f.get("status", "").lower())
+            
+            avg_soil = sum(f.get("soil", 0) for f in farms) / total if total > 0 else 0
+            
+            return (f"📊 **THỐNG KÊ VƯỜN**\n"
+                    f"• Tổng số vườn: {total}\n"
+                    f"• 💧 Cần tưới nhiều: {high} vườn\n"
+                    f"• 💧 Cần tưới vừa: {medium} vườn\n"
+                    f"• 💧 Cần tưới ít: {low} vườn\n"
+                    f"• ✅ Không cần tưới: {none} vườn\n"
+                    f"• 🌱 Độ ẩm trung bình: {avg_soil:.3f}")
+        return "Chưa có dữ liệu vườn để thống kê."
+
+    # ==================== TỪ KHÓA "AI" / "AI NHẬN ĐỊNH" ====================
+    if any(k in msg_lower for k in ["ai", "ai nhận định", "ai nói", "trí tuệ nhân tạo"]):
+        if farms:
+            # Lấy 3 vườn có độ ẩm thấp nhất
+            critical = sorted(farms, key=lambda x: x.get("soil", 1))[:3]
+            ai_analysis = []
+            for f in critical:
+                soil = f.get('soil', 0)
+                if soil < 0.15:
+                    level = "⚠️ CẤP BÁCH"
+                elif soil < 0.25:
+                    level = "⚠️ Cần chú ý"
+                else:
+                    level = "Theo dõi"
+                ai_analysis.append(f"• {f.get('name', '?')}: {level} (độ ẩm {soil:.2f})")
+            
+            # Tổng hợp khuyến nghị
+            high_count = sum(1 for f in farms if "nhiều" in f.get("status", "").lower())
+            recommendation = "Ưu tiên tưới các vườn có độ ẩm dưới 0.2" if high_count > 0 else "Điều kiện hiện tại ổn định"
+            
+            return (f"🤖 **AI NHẬN ĐỊNH:**\n"
+                    f"{chr(10).join(ai_analysis)}\n\n"
+                    f"📌 **Khuyến nghị:** {recommendation}")
+        return "Chưa có dữ liệu để AI phân tích."
+
+    # ==================== DANH SÁCH VƯỜN TỪ CÂU TRƯỚC ====================
     if any(k in msg_lower for k in ["tên những vườn", "những vườn nào", "tên các vườn", "danh sách vườn", "vườn đó là gì", "tên các vườn đó"]):
         if request:
             last_list = request.session.get('last_farm_list', [])
             if last_list:
-                # Giới hạn hiển thị tối đa 20 tên để tránh quá dài
                 if len(last_list) <= 20:
                     return f"📋 Danh sách {len(last_list)} vườn cần tưới nhiều:\n" + ", ".join(last_list)
                 else:
-                    # Hiển thị 20 tên đầu và thông báo còn lại
                     display = ", ".join(last_list[:20])
                     return f"📋 Danh sách {len(last_list)} vườn cần tưới nhiều (hiển thị 20):\n{display}\n... và {len(last_list)-20} vườn khác."
             else:
@@ -788,74 +908,76 @@ def simple_rule_based_fallback(message, farms, request=None):
     # ==================== DỰ BÁO THỜI TIẾT ====================
     if any(k in msg_lower for k in ["ngày mai", "dự báo", "mai có mưa", "mai mưa"]):
         forecast = get_weather_forecast()
-        if forecast and len(forecast) >= 2:  # forecast[0] hôm nay, [1] ngày mai
+        if forecast and len(forecast) >= 2:
             tomorrow = forecast[1]
             rain = tomorrow.get('rain', 0)
             temp_max = tomorrow.get('temp_max', '?')
+            temp_min = tomorrow.get('temp_min', '?')
             if rain > 0:
-                return f"☁️ Dự báo ngày mai: có mưa, lượng mưa {rain} mm, nhiệt độ cao nhất {temp_max}°C."
+                return f"☁️ Dự báo ngày mai: có mưa {rain} mm, nhiệt độ {temp_min}°C - {temp_max}°C."
             else:
-                return f"☀️ Dự báo ngày mai: không mưa, nhiệt độ cao nhất {temp_max}°C."
+                return f"☀️ Dự báo ngày mai: không mưa, nhiệt độ {temp_min}°C - {temp_max}°C."
         return "Hiện chưa có dữ liệu dự báo thời tiết."
 
     # ==================== CẢNH BÁO HẠN HÁN ====================
-    if "hạn hán" in msg_lower or "cảnh báo hạn" in msg_lower:
+    if any(k in msg_lower for k in ["hạn hán", "cảnh báo hạn", "khô hạn"]):
         if farms:
             dry_farms = [f for f in farms if f.get("soil", 1) < 0.2]
             if dry_farms:
-                names = ", ".join([f.get("name", "?") for f in dry_farms[:3]])
-                return f"⚠️ Cảnh báo: {len(dry_farms)} vườn có độ ẩm thấp (dưới 0.2), cần tưới: {names}."
-            else:
-                return "✅ Hiện chưa có dấu hiệu hạn hán, độ ẩm đất ổn định."
+                names = ", ".join([f.get("name", "?") for f in dry_farms[:5]])
+                return f"⚠️ **Cảnh báo hạn hán!** {len(dry_farms)} vườn có độ ẩm thấp (<0.2): {names}."
+            return "✅ Hiện chưa có dấu hiệu hạn hán, độ ẩm đất ổn định."
         return "Chưa có dữ liệu vườn để đánh giá."
 
     # ==================== THỜI TIẾT HIỆN TẠI ====================
-    if any(k in msg_lower for k in ["thời tiết", "nhiệt độ", "độ ẩm", "mưa", "gió", "bức xạ"]):
+    if any(k in msg_lower for k in ["thời tiết", "nhiệt độ", "độ ẩm không khí", "mưa", "gió", "bức xạ"]):
         weather = get_current_weather()
         if weather:
-            return (f"🌤 Thời tiết hiện tại: {weather['temperature']}°C, độ ẩm {weather['humidity']}%, "
-                    f"mưa {weather['rain']} mm, gió {weather['wind']} km/h, bức xạ {weather['radiation']} W/m².")
+            return (f"🌤 **Thời tiết hiện tại:**\n"
+                    f"• Nhiệt độ: {weather['temperature']}°C\n"
+                    f"• Độ ẩm KK: {weather['humidity']}%\n"
+                    f"• Lượng mưa: {weather['rain']} mm\n"
+                    f"• Gió: {weather['wind']} km/h\n"
+                    f"• Bức xạ: {weather['radiation']} W/m²")
         return "Không lấy được dữ liệu thời tiết."
 
-    # ==================== KHUYẾN NGHỊ TƯỚI ====================
-    if any(k in msg_lower for k in ["có nên tưới", "tưới nước", "nên tưới"]):
-        if farms:
-            avg_soil = sum(f.get("soil", 0) for f in farms) / len(farms)
-            if avg_soil < 0.25:
-                return "🌱 Độ ẩm đất trung bình thấp, bạn nên tưới nước hôm nay."
-            elif avg_soil > 0.45:
-                return "💧 Độ ẩm đất đang cao, không cần tưới hôm nay."
-            else:
-                return "🌿 Độ ẩm đất ở mức ổn định, có thể tưới nhẹ nếu cần."
-        return "Chưa có dữ liệu độ ẩm đất."
-
     # ==================== SỐ LƯỢNG VƯỜN TƯỚI NHIỀU ====================
-    if any(k in msg_lower for k in ["bao nhiêu vườn", "có mấy vườn", "số lượng vườn"]) and ("tưới nhiều" in msg_lower or "cần tưới" in msg_lower):
+    if any(k in msg_lower for k in ["bao nhiêu vườn", "có mấy vườn", "số lượng vườn", "đếm vườn"]) and ("tưới nhiều" in msg_lower or "cần tưới" in msg_lower or "khô" in msg_lower):
         high_farms = [f for f in farms if "nhiều" in f.get("status", "").lower()]
         count = len(high_farms)
         farm_names = [f.get("name", "?") for f in high_farms]
-        # Lưu danh sách vào session
         if request:
             request.session['last_farm_list'] = farm_names
             request.session.modified = True
         if count == 0:
             return "💧 Hiện không có vườn nào cần tưới nhiều."
-        return f"⚠️ Hiện có {count} vườn cần tưới nhiều."
+        return f"⚠️ Hiện có **{count}** vườn cần tưới nhiều."
 
-    # ==================== CÁC CÂU HỎI KHÁC ====================
-    if "khô nhất" in msg_lower:
+    # ==================== KHUYẾN NGHỊ TƯỚI ====================
+    if any(k in msg_lower for k in ["có nên tưới", "tưới nước", "nên tưới", "tưới hôm nay"]):
         if farms:
-            driest = min(farms, key=lambda x: x.get("soil", 1))
-            return f"🌱 Vườn khô nhất: {driest.get('name', '?')} (độ ẩm {driest.get('soil', 0):.2f})"
-        return "Chưa có dữ liệu vườn."
+            avg_soil = sum(f.get("soil", 0) for f in farms) / len(farms)
+            if avg_soil < 0.25:
+                return "🌱 **Khuyến nghị:** Độ ẩm đất trung bình thấp, bạn **nên tưới nước** hôm nay."
+            elif avg_soil > 0.45:
+                return "💧 **Khuyến nghị:** Độ ẩm đất đang cao, **không cần tưới** hôm nay."
+            else:
+                return "🌿 **Khuyến nghị:** Độ ẩm đất ở mức ổn định, có thể tưới nhẹ nếu cần."
+        return "Chưa có dữ liệu độ ẩm đất."
 
-    if "úng" in msg_lower or "quá ẩm" in msg_lower:
-        wet = [f.get("name", "?") for f in farms if f.get("soil", 0) > 0.48]
-        if wet:
-            return "⚠️ Vườn có nguy cơ úng: " + ", ".join(wet)
-        return "✅ Không có vườn nào bị úng."
+    # ==================== CÂU HỎI MẶC ĐỊNH (luôn có phản hồi) ====================
+    # Hiển thị menu nếu không hiểu
+    return ("🤖 **Tôi có thể giúp gì về vườn cà phê?**\n\n"
+            "📌 **Thử hỏi:**\n"
+            "• 'khô nhất' - Xem vườn khô nhất\n"
+            "• 'top tưới' - Top vườn cần tưới\n"
+            "• 'ứng' - Kiểm tra vườn úng nước\n"
+            "• 'thống kê' - Tổng quan tất cả vườn\n"
+            "• 'AI' - Nhận định từ AI\n"
+            "• 'thời tiết' - Dự báo hiện tại\n"
+            "• 'có nên tưới' - Khuyến nghị tưới\n"
+            "• 'bao nhiêu vườn cần tưới' - Số lượng vườn khô")
 
-    return "🤖 Tôi chưa hiểu câu hỏi. Bạn có thể hỏi về thời tiết, dự báo, tình trạng vườn hoặc khuyến nghị tưới."
 
 def get_detailed_farm_data():
     farms = get_latest_garden_data()
@@ -971,3 +1093,5 @@ def sensor_data(request):
         "soil_moisture": 55
     }
     return JsonResponse(data)
+def simulation(request):
+    return render(request, "simulation.html")

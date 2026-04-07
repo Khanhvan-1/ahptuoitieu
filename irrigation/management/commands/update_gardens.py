@@ -56,5 +56,5 @@ class Command(BaseCommand):
                     f"✅ {garden.name} | Soil={soil} | Temp={temp} | AI={irrigation_status}"
                 )
 
-            self.stdout.write(self.style.SUCCESS("⏳ Đợi 60 giây để cập nhật tiếp...\n"))
-            time.sleep(60)
+            self.stdout.write(self.style.SUCCESS("⏳ Đợi 1 ngày để cập nhật tiếp...\n"))
+            time.sleep(86400)

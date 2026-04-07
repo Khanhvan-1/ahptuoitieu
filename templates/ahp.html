@@ -362,6 +362,29 @@
             animation: spin 1s linear infinite;
         }
 
+        .back-home-btn {
+            background: rgba(255,255,255,0.95) !important;
+            color: #1e293b !important;
+            border-radius: 999px !important;
+            font-weight: 700 !important;
+            padding: 12px 22px !important;
+            border: none !important;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            text-decoration: none !important;
+            transition: all 0.25s ease;
+        }
+
+        .back-home-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            background: #ffffff !important;
+            color: #2563eb !important;
+            box-shadow: 0 12px 28px rgba(37,99,235,0.25);
+        }
+
+        .back-home-btn i {
+            margin-right: 8px;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -388,7 +411,7 @@
     <div class="main-container">
         <!-- Header -->
         <div class="glass-card header-card" data-aos="fade-down">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
                     <h2>
                         <i class="fas fa-brain me-2"></i>
@@ -399,10 +422,16 @@
                         40 vườn cà phê tại Đắk Lắk
                     </p>
                 </div>
-                <div class="d-flex gap-2">
+
+                <div class="d-flex gap-2 flex-wrap">
                     <span class="data-source">
                         <i class="fas fa-database me-2"></i>Dữ liệu thời gian thực
                     </span>
+
+                    <a href="/dashboard/" class="btn btn-light back-home-btn">
+                        <i class="fas fa-house"></i>
+                        Quay lại Dashboard
+                    </a>
                 </div>
             </div>
         </div>

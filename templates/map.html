@@ -574,6 +574,28 @@
         .leaflet-top.leaflet-right {
             z-index: 900;
         }
+
+        .map-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 24px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            color: #0f172a;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+            transition: all 0.28s ease;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+
+        .map-back-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 14px 28px rgba(44,123,229,0.25);
+        }
     </style>
 </head>
 <body>
@@ -596,7 +618,7 @@
 
     <!-- Header -->
     <div class="map-header" data-aos="fade-down">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
                 <h2>
                     <i class="fas fa-map-marked-alt me-3" style="color: #2c7be5;"></i>
@@ -607,10 +629,16 @@
                     Hệ thống giám sát 40 vườn cà phê thông minh
                 </p>
             </div>
-            <div class="d-flex gap-3">
+
+            <div class="d-flex gap-3 flex-wrap align-items-center">
                 <span class="badge bg-primary p-3" style="background: linear-gradient(135deg, #2c7be5, #00c9a7) !important;">
                     <i class="fas fa-sync-alt me-2"></i>Real-time
                 </span>
+
+                <a href="/dashboard/" class="map-back-btn">
+                    <i class="fas fa-house"></i>
+                    Quay lại Dashboard
+                </a>
             </div>
         </div>
     </div>
